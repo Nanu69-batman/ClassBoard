@@ -62,13 +62,19 @@ Firebase CLI.
 
 ### Project setup still to do
 
-The Firebase project `classboard-de77d` exists, but these must be enabled in the
-console before the app can read or write anything:
+The Firebase project `classboard-de77d` has **Cloud Firestore** created and
+**Email/Password** authentication enabled. Both verified from here.
 
-- **Cloud Firestore** — currently reports `SERVICE_DISABLED`. Create a database
-  (start in production mode; rules are managed in `firestore.rules`)
-- **Cloud Storage** — bucket does not exist yet
-- **Authentication → Email/Password** — must be enabled before any CR can sign in
+- **Cloud Storage** is not enabled yet. The bucket only appears once you click
+  *Get started* in the Storage section — the `404` on
+  `classboard-de77d.firebasestorage.app` means "not provisioned", not "not
+  allowed". Storage is **free** on the Spark plan (5 GB stored, 1 GB/day
+  downloaded), so no paid plan or third-party alternative is needed.
+
+Security rules are currently the deny-all placeholders in `firestore.rules` and
+`storage.rules`, which is why a direct Firestore read from outside the app
+returns *Missing or insufficient permissions*. That is the intended state until
+the real rules land.
 
 ## Scripts
 
