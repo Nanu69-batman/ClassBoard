@@ -28,10 +28,10 @@ ClassBoard talks to Firebase for shared data. The web app config lives in
 `src/lib/firebase.ts` and is committed on purpose.
 
 **Those values are public by design.** Firebase web config is not a secret: it
-ships in every browser bundle, which is why Firebase built it that way. The
-values identify *which* project a request targets — they do not grant access to
-it. The access boundary is `firestore.rules` and `storage.rules`, enforced
-server-side. Publishing the config is not a security hole.
+ships in the browser bundle, so anyone loading the deployed site already has it.
+Committing it is correct — hiding it in `.env` or `.gitignore` would change nothing
+about who can read it while making the repo harder to run. The access boundary is
+`firestore.rules` and `storage.rules`.
 
 To point the app at a different project, change those six values. Copy them from
 **Firebase console → Project settings → Your apps → SDK setup and configuration**.
@@ -43,11 +43,33 @@ To point the app at a different project, change those six values. Copy them from
 | `storageBucket` | Storage bucket name |
 | `appId` | Your web app's config |
 
+The only genuinely private credential is the **service-account JSON** used by the
+local seed script. It is ignored by git, and nothing in this repo can
+impersonate it.
+
 > **Worth doing once:** restrict the API key by HTTP referrer in
 > [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials).
 > Because the key is public, anyone can use it to spend your project's quota. On
 > the free Spark plan that means "quota exhausted" rather than a bill, but the
 > referrer restriction stops it either way.
+
+### App Check
+
+`src/lib/firebase.ts` is already wired for App Check. It just needs a reCAPTCHA
+v3 site key, which is currently empty so the app runs without it:
+
+1. Google Cloud Console → APIs & Services → **reCAPTCHA Enterprise** → create a
+   key of type *Web*, adding your Vercel domain
+2. Put the site key in `recaptchaSiteKey` in `src/lib/firebase.ts`
+3. Firebase console → **App Check** → register the reCAPTCHA v3 provider, then
+   **enforce** it on Firestore and Storage
+
+App Check is the server-enforced equivalent of a CAPTCHA. A form field can be
+deleted from the page with devtools; the App Check token is verified by Firebase
+itself, so a script cannot skip it. It stops automated callers using the
+committed key to burn quota, sign up accounts, or scrape Firestore directly. It
+does not stop a person using the real site — that is correct, they are a
+legitimate visitor.
 
 ### Deploying
 
