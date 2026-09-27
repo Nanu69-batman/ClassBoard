@@ -19,45 +19,56 @@ npm run dev
 
 Then open the URL Vite prints, usually <http://localhost:5173>.
 
-The app runs with no configuration — it falls back to the bundled sample
-assignments. To connect a real Firebase project, see [Configuration](#configuration).
+The app runs with no configuration step — the Firebase config is committed, so
+`npm install && npm run dev` is all you need.
 
 ## Configuration
 
-ClassBoard talks to Firebase for shared data. The app still builds and runs
-without it; the student dashboard falls back to local sample data.
+ClassBoard talks to Firebase for shared data. The web app config lives in
+`src/lib/firebase.ts` and is committed on purpose.
 
-```bash
-cp .env.example .env
-```
+**Those values are public by design.** Firebase web config is not a secret: it
+ships in every browser bundle, which is why Firebase built it that way. The
+values identify *which* project a request targets — they do not grant access to
+it. The access boundary is `firestore.rules` and `storage.rules`, enforced
+server-side. Publishing the config is not a security hole.
 
-Then fill `.env` with the six values from **Firebase console → Project settings →
-Your apps → your web app → SDK setup and configuration → Config**.
+To point the app at a different project, change those six values. Copy them from
+**Firebase console → Project settings → Your apps → SDK setup and configuration**.
 
-> **Windows note:** save `.env` as **plain UTF-8, without a BOM**. PowerShell's
-> `Out-File -Encoding utf8` and older Notepad add a BOM by default, which
-> silently corrupts the first variable name so that one value never loads. If a
-> value is missing from `.env` but you can see it in the file, this is why — the
-> app's error message says so too.
+| Value | Where it comes from |
+| --- | --- |
+| `apiKey`, `authDomain` | SDK setup and configuration → Config |
+| `projectId` | Project settings → Project ID |
+| `storageBucket` | Storage bucket name |
+| `appId` | Your web app's config |
 
-These six values are public by design and ship in every browser bundle. The
-access boundary is Firestore/Storage Security Rules, not the config. The
-genuinely private file is the service-account JSON, which is ignored by git and
-used only by the local seed script.
-
-Only variables prefixed `VITE_` reach the browser, so never prefix a secret
-with `VITE_`.
+> **Worth doing once:** restrict the API key by HTTP referrer in
+> [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials).
+> Because the key is public, anyone can use it to spend your project's quota. On
+> the free Spark plan that means "quota exhausted" rather than a bill, but the
+> referrer restriction stops it either way.
 
 ### Deploying
 
 | What | Where |
 | --- | --- |
 | The website | Vercel, connected to this repo. `vercel.json` handles the SPA rewrite so `/cr` and `/admin` refresh correctly. |
-| Firebase env vars | Vercel → Settings → Environment Variables, for Production and Preview |
+| Firebase env vars | n/a — the config is in source, so nothing to set in Vercel |
 | Security rules | Your machine: `npm run firebase:deploy:rules` |
 
 Rules deliberately do **not** deploy from Vercel — they are published with the
 Firebase CLI.
+
+### Project setup still to do
+
+The Firebase project `classboard-de77d` exists, but these must be enabled in the
+console before the app can read or write anything:
+
+- **Cloud Firestore** — currently reports `SERVICE_DISABLED`. Create a database
+  (start in production mode; rules are managed in `firestore.rules`)
+- **Cloud Storage** — bucket does not exist yet
+- **Authentication → Email/Password** — must be enabled before any CR can sign in
 
 ## Scripts
 

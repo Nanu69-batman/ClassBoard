@@ -9,8 +9,9 @@ dist-ssr/
 build/
 *.local
 
-# Environment — Vite only loads real values from .env* at the project root.
-# .env.example IS committed and holds placeholders only.
+# Environment — ClassBoard commits its Firebase web config in
+# src/lib/firebase.ts, so no .env is needed. These rules are a safety net for
+# anyone who forks the project and switches to env-based config.
 .env
 .env.*
 !.env.example
