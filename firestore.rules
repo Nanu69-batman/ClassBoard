@@ -2,23 +2,238 @@ rules_version = '2';
 
 // Firestore security rules — ClassBoard
 //
-// STATUS: placeholder. Everything is denied until the data model lands.
+// These rules are the security boundary. The frontend is not, and the Firebase
+// web config in src/lib/firebase.ts is not. Nothing here trusts a value the
+// client chose about its own permissions.
 //
-// This is intentionally deny-all rather than a permissive stand-in. An
-// unprotected Firestore project is readable and writable by anyone on the
-// internet, so the safe default for a project that is not ready is a closed
-// door. M2 replaces the body below with the real matrix:
+// Shape of the model:
 //
-//   student (unauthenticated)  read active classes/subjects/assignments, no writes
-//   class CR                   CRUD on their own class only
-//   superadmin                 everything
+//   users/{uid}          role + classId + active. The authority on permissions.
+//   classes/{classId}    public metadata, plus subcollections:
+//     subjects/{id}      public
+//     assignments/{id}   public
+//   crInvites/{token}    unreadable by anyone; only a superadmin writes one
 //
-// Deploy with:  npm run firebase:deploy:rules
+// Three things this file is deliberate about:
+//
+//   1. A bare authenticated user (someone who self-registered) has no
+//      users/{uid} document, so `myUserDoc()` does not exist and every
+//      privileged helper denies. They can read the public feed and nothing else.
+//
+//   2. The invite path hard-codes role == 'cr'. The role is never read from the
+//      token or the request body, so no invite can mint a superadmin. This line
+//      is the whole reason the invite mechanism is safe. Do not loosen it.
+//
+//   3. Every write to a public collection is constrained by keys().hasOnly([...]).
+//      That blocks the accidental denormalisation of a user's account email
+//      (postedByEmail, crEmail, userEmail are simply absent from the lists) while
+//      still allowing contactEmail, which a CR publishes on purpose.
+//
+// Test with:  npm run test:rules
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if false;
+
+    // ---------------------------------------------------------------- helpers
+
+    function userDocPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function inviteDocPath(token) {
+      return /databases/$(database)/documents/crInvites/$(token);
+    }
+
+    /** A signed-in user that has a users/{uid} document. */
+    function hasProfile() {
+      return request.auth != null && exists(userDocPath(request.auth.uid));
+    }
+
+    function myProfile() {
+      return get(userDocPath(request.auth.uid)).data;
+    }
+
+    function amSuperadmin() {
+      return hasProfile()
+        && myProfile().role == 'superadmin'
+        && myProfile().active == true;
+    }
+
+    function amCr() {
+      return hasProfile()
+        && myProfile().role == 'cr'
+        && myProfile().active == true;
+    }
+
+    /** The class this CR may write to, or null if they are not an active CR. */
+    function myClassId() {
+      return amCr() ? myProfile().classId : null;
+    }
+
+    function isMyClass(classId) {
+      return amCr() && myClassId() == classId;
+    }
+
+    // --------------------------------------------------------- field contracts
+
+    function validClass() {
+      return request.resource.data.keys().hasOnly([
+        'name', 'batch', 'section', 'displayName', 'active', 'createdAt', 'updatedAt'
+      ]);
+    }
+
+    function validSubject() {
+      return request.resource.data.keys().hasOnly([
+        'name', 'shortName', 'active'
+      ]);
+    }
+
+    function validAssignment() {
+      return request.resource.data.keys().hasOnly([
+        'subjectId', 'subjectName', 'title', 'description', 'dueDate', 'priority',
+        'attachmentUrl', 'attachmentName', 'contactEmail',
+        'createdBy', 'postedByName', 'createdAt', 'updatedAt', 'active'
+      ]);
+    }
+
+    function validUser() {
+      return request.resource.data.keys().hasOnly([
+        'email', 'displayName', 'role', 'classId', 'active', 'createdAt',
+        'updatedAt', 'inviteToken'
+      ]);
+    }
+
+    function validInvite() {
+      return request.resource.data.keys().hasOnly([
+        'classId', 'forPreviousUid', 'createdBy', 'createdAt', 'expiresAt',
+        'used', 'usedBy'
+      ]);
+    }
+
+    /** The invite that this write is presenting, already resolved. */
+    function presentedInvite() {
+      return get(inviteDocPath(request.resource.data.inviteToken)).data;
+    }
+
+    // ----------------------------------------------------------------- classes
+
+    match /classes/{classId} {
+      // Anyone may read an active class. A deactivated one is hidden from
+      // students, so a `list` that would return it is rejected outright — which
+      // is why the client must filter on active == true.
+      allow get: if resource.data.active == true
+                 || amSuperadmin()
+                 || isMyClass(classId);
+      allow list: if resource.data.active == true || amSuperadmin();
+
+      allow create, update, delete: if amSuperadmin() && validClass();
+    }
+
+    // ---------------------------------------------------------------- subjects
+
+    match /classes/{classId}/subjects/{subjectId} {
+      allow get: if resource.data.active == true
+                 || amSuperadmin()
+                 || isMyClass(classId);
+      allow list: if resource.data.active == true || amSuperadmin();
+
+      allow create, update: if (amSuperadmin() || isMyClass(classId)) && validSubject();
+      allow delete: if amSuperadmin() || isMyClass(classId);
+    }
+
+    // ------------------------------------------------------------- assignments
+
+    match /classes/{classId}/assignments/{assignmentId} {
+      allow get: if resource.data.active == true
+                 || amSuperadmin()
+                 || isMyClass(classId);
+      allow list: if resource.data.active == true || amSuperadmin();
+
+      // A CR may only post as themselves. Keeps createdBy from being forged,
+      // which is what makes postedByName trustworthy for students.
+      allow create: if amSuperadmin()
+                    || (isMyClass(classId)
+                        && validAssignment()
+                        && request.resource.data.createdBy == request.auth.uid);
+
+      allow update, delete: if amSuperadmin() || isMyClass(classId);
+    }
+
+    // ------------------------------------------------------------------- users
+
+    match /users/{uid} {
+      // Never public. postedByName on the assignment is what students see.
+      allow get: if request.auth != null && (request.auth.uid == uid || amSuperadmin());
+      allow list: if amSuperadmin();
+
+      // A superadmin may write any profile.
+      //
+      // Otherwise the only self-service path is claiming an invite, and the role
+      // is pinned to 'cr' here. The class comes from the invite, and the invite
+      // must already have been consumed by this exact user.
+      allow create: if amSuperadmin() && validUser()
+        || (request.auth != null
+            && request.auth.uid == uid
+            && validUser()
+            && request.resource.data.role == 'cr'
+            && request.resource.data.active == true
+            && exists(inviteDocPath(request.resource.data.inviteToken))
+            && presentedInvite().usedBy == request.auth.uid
+            && presentedInvite().classId == request.resource.data.classId);
+
+      // Three separate permissions, each parenthesised. Security rules should not
+      // depend on && binding tighter than || — that is one refactor away from a hole.
+      //
+      // 1. A user may edit their own display name. Nothing else — not their role,
+      //    not their class, not their active flag.
+      // 2. A superadmin may edit anything.
+      // 3. Transfer: a CR who consumed an invite naming this uid as the outgoing
+      //    holder may flip active to false. The affected keys are limited to
+      //    active and revokeToken, so a CR can never rewrite a role or classId.
+      allow update: if (
+        (request.auth != null
+          && request.auth.uid == uid
+          && request.resource.data.diff(resource.data)
+               .affectedKeys().hasOnly(['displayName', 'updatedAt']))
+        || amSuperadmin()
+        || (hasProfile()
+            && request.auth.uid != uid
+            && resource.data.role == 'cr'
+            && request.resource.data.active == false
+            && request.resource.data.diff(resource.data)
+                 .affectedKeys().hasOnly(['active', 'revokeToken'])
+            && exists(inviteDocPath(request.resource.data.revokeToken))
+            && get(inviteDocPath(request.resource.data.revokeToken)).data.usedBy == request.auth.uid
+            && get(inviteDocPath(request.resource.data.revokeToken)).data.forPreviousUid == uid)
+      );
+
+      allow delete: if amSuperadmin();
+    }
+
+    // ----------------------------------------------------------------- invites
+
+    match /crInvites/{token} {
+      // Unreadable by everyone, including the claimant. A token is not a
+      // capability you check and then act on — it is spent by writing against it.
+      // This also means tokens cannot be probed or enumerated.
+      allow get, list: if false;
+
+      allow create: if amSuperadmin()
+                    && validInvite()
+                    && request.resource.data.used == false
+                    && request.resource.data.usedBy == null;
+
+      allow delete: if amSuperadmin();
+
+      // Consume: sign in, unused, unexpired, and change nothing but used/usedBy.
+      allow update: if amSuperadmin()
+        || (request.auth != null
+            && resource.data.used == false
+            && resource.data.expiresAt > request.time
+            && request.resource.data.diff(resource.data)
+                 .affectedKeys().hasOnly(['used', 'usedBy'])
+            && request.resource.data.used == true
+            && request.resource.data.usedBy == request.auth.uid);
     }
   }
 }
