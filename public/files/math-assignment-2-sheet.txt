@@ -1,0 +1,10 @@
+ENGINEERING MATHEMATICS — ASSIGNMENT 2 (Unit 2)
+Sample attachment for ClassBoard.
+
+Solve questions 1-10 from Unit 2.
+
+ 1-6.  Evaluation problems (limits, continuity, differentiation).
+ 7-8.  Product and quotient rule practice.
+ 9-10. Applications of derivatives to rate-of-change problems.
+
+Note: Show each step clearly; answers alone will not be graded.

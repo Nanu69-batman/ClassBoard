@@ -1,0 +1,10 @@
+ENGINEERING MATHEMATICS — ASSIGNMENT 1 (Unit 1)
+Sample attachment for ClassBoard.
+
+1. Solve the simultaneous linear equations given in Question 1.
+2. Show the matrix form of the system in Question 2.
+3. Compute the rank of the matrix in Question 3.
+4. Find the eigenvalues of the matrix in Question 4.
+5. Explain, in four lines, why rank and number of unknowns matter.
+
+Note: Show all working. Final answers alone will not be graded.

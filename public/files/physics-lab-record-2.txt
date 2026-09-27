@@ -1,0 +1,21 @@
+PHYSICS — LAB RECORD 2
+Sample attachment for ClassBoard.
+
+EXPERIMENT 2: MOMENT OF INERTIA OF A DISC
+
+Aim      : To determine the moment of inertia of a uniform disc about its
+           central axis using a torsional pendulum.
+
+Apparatus : Torsional pendulum, disc, vernier calipers, stopwatch, timer.
+
+Procedure  :
+ 1. Measure the radius and thickness of the disc using vernier calipers.
+ 2. Record the equilibrium position of the inner and outer cylinders.
+ 3. Displace the disc by a small angle and release it.
+ 4. Time 20 oscillations and compute the mean period T.
+ 5. Compute I = (k T^2) / (4 pi^2).
+
+Observations to be recorded in a table:
+ Trial | Time for 20 oscillations (s) | Period T (s) | 4 pi^2 I / (k T^2)
+
+Result: Moment of inertia of the disc in kg m^2, with units.
