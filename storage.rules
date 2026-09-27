@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Cloud Storage security rules — ClassBoard
+//
+// STATUS: placeholder. Everything is denied until the attachment flow lands.
+//
+// Same reasoning as firestore.rules: an open Storage bucket accepts uploads
+// from anyone, so deny-by-default is the safe state for a project that is not
+// ready. M7 replaces this with rules scoped to a class CR's own class.
+//
+// Deploy with:  npm run firebase:deploy:rules
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

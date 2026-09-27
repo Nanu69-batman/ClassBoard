@@ -19,14 +19,57 @@ npm run dev
 
 Then open the URL Vite prints, usually <http://localhost:5173>.
 
+The app runs with no configuration — it falls back to the bundled sample
+assignments. To connect a real Firebase project, see [Configuration](#configuration).
+
+## Configuration
+
+ClassBoard talks to Firebase for shared data. The app still builds and runs
+without it; the student dashboard falls back to local sample data.
+
+```bash
+cp .env.example .env
+```
+
+Then fill `.env` with the six values from **Firebase console → Project settings →
+Your apps → your web app → SDK setup and configuration → Config**.
+
+> **Windows note:** save `.env` as **plain UTF-8, without a BOM**. PowerShell's
+> `Out-File -Encoding utf8` and older Notepad add a BOM by default, which
+> silently corrupts the first variable name so that one value never loads. If a
+> value is missing from `.env` but you can see it in the file, this is why — the
+> app's error message says so too.
+
+These six values are public by design and ship in every browser bundle. The
+access boundary is Firestore/Storage Security Rules, not the config. The
+genuinely private file is the service-account JSON, which is ignored by git and
+used only by the local seed script.
+
+Only variables prefixed `VITE_` reach the browser, so never prefix a secret
+with `VITE_`.
+
+### Deploying
+
+| What | Where |
+| --- | --- |
+| The website | Vercel, connected to this repo. `vercel.json` handles the SPA rewrite so `/cr` and `/admin` refresh correctly. |
+| Firebase env vars | Vercel → Settings → Environment Variables, for Production and Preview |
+| Security rules | Your machine: `npm run firebase:deploy:rules` |
+
+Rules deliberately do **not** deploy from Vercel — they are published with the
+Firebase CLI.
+
 ## Scripts
 
-| Script              | What it does                     |
-| ------------------- | -------------------------------- |
-| `npm run dev`       | Start the development server     |
-| `npm run build`     | Type-check and build for production |
-| `npm run preview`   | Serve the production build locally |
-| `npm run typecheck` | Run TypeScript without emitting  |
+| Script                        | What it does                        |
+| ----------------------------- | ----------------------------------- |
+| `npm run dev`                 | Start the development server        |
+| `npm run build`               | Type-check and build for production |
+| `npm run preview`             | Serve the production build locally  |
+| `npm run typecheck`           | Run TypeScript without emitting     |
+| `npm run firebase:login`      | Log the Firebase CLI into your account |
+| `npm run firebase:deploy:rules` | Publish `firestore.rules` and `storage.rules` |
+| `npm run firebase:emulators`  | Run the local Auth/Firestore/Storage emulators |
 
 ## How it works
 
