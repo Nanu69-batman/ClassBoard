@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+dist-ssr/
+build/
+*.local
+
+# Environment — Vite only loads real values from .env* at the project root.
+# .env.example IS committed and holds placeholders only.
+.env
+.env.*
+!.env.example
+
+# Firebase credentials — never commit these.
+# The service account JSON used by `npm run seed` must stay local.
+*service-account*.json
+*serviceAccount*.json
+firebase-adminsdk-*.json
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+*-debug.log
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
