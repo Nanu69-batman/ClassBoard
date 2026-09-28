@@ -6,7 +6,7 @@
  * is loosened, one of these fails.
  */
 
-import { afterAll, afterEach, beforeAll, describe, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   addDoc,
   collection,
@@ -414,5 +414,124 @@ describe("public document hygiene", () => {
 
     await assertFails(setDoc(doc(admin, "classes/sloppy"), classDoc({ ownerEmail: "x@y.z" })));
     await assertFails(setDoc(doc(admin, "classes/ece-2026-a/subjects/sloppy"), subjectDoc({ hidden: true })));
+  });
+});
+
+/**
+ * Lists are authorised differently from single reads, and the difference is not
+ * obvious. A point read is checked against one document. A query is checked once
+ * for the whole result set, so a branch that varies per document
+ * (`resource.data.active == true`) has to appear in the query's own where()
+ * clause, while a branch that is constant for the caller (amSuperadmin,
+ * isMyClass — both a single get() on the caller's own profile) is evaluated for
+ * the query as a whole and needs no filter.
+ *
+ * These tests pin that behaviour. The one that matters most is the first: a CR
+ * losing access to its own archived work is silent, invisible in the UI, and
+ * would otherwise only surface in M6 as an empty filter result.
+ */
+describe("query authorisation", () => {
+  /** An archived assignment, invisible to students. */
+  async function seedArchived(env: RulesTestEnvironment) {
+    await put(env, "classes/ece-2026-a/assignments/archived", assignmentDoc({ active: false }));
+    await put(env, "classes/ece-2026-a/subjects/old", subjectDoc({ active: false }));
+  }
+
+  it("lets a CR list its own class unfiltered, archived work included", async () => {
+    await seedWorld(env);
+    await seedArchived(env);
+    const cr = crOfA(env);
+
+    // The whole point. No active filter, and the archived document comes back.
+    const assignments = await assertSucceeds(
+      getDocs(collection(cr, "classes/ece-2026-a/assignments")),
+    );
+    expect(assignments.docs.map((d) => d.id).sort()).toEqual(["a1", "archived"]);
+
+    await assertSucceeds(getDocs(collection(cr, "classes/ece-2026-a/subjects")));
+    // But not the classes collection. isMyClass(classId) is constant for a
+    // subcollection — the path already fixed the class — whereas across
+    // /classes it varies per document, so it cannot carry a query. A CR reads
+    // its own class with getDoc, and lists the public ones with a filter.
+    await assertSucceeds(getDoc(doc(cr, paths.classA)));
+    await assertFails(getDocs(collection(cr, "classes")));
+  });
+
+  it("still hides another class's archived work from a CR", async () => {
+    await seedWorld(env);
+    await put(env, "classes/cse-2026-a/assignments/hidden", assignmentDoc({ active: false }));
+    const crOfClassA = crOfA(env);
+
+    // Unfiltered, the public branch cannot be proven and isMyClass is false.
+    await assertFails(getDocs(collection(crOfClassA, "classes/cse-2026-a/assignments")));
+    // Naming active == false directly must not become a way around it.
+    await assertFails(
+      getDocs(query(collection(crOfClassA, "classes/cse-2026-a/assignments"), where("active", "==", false))),
+    );
+    // A CR of B may of course see B's own archive.
+    await assertSucceeds(getDocs(collection(crOfB(env), "classes/cse-2026-a/assignments")));
+  });
+
+  it("keeps the public feed filtered, and hides archived work from visitors", async () => {
+    await seedWorld(env);
+    await seedArchived(env);
+    const anon = env.unauthenticatedContext().firestore();
+
+    // Students see active work only, and must ask for it by filter.
+    const feed = await assertSucceeds(
+      getDocs(query(collection(anon, "classes/ece-2026-a/assignments"), where("active", "==", true))),
+    );
+    expect(feed.docs.map((d) => d.id)).toEqual(["a1"]);
+
+    await assertFails(getDocs(collection(anon, "classes/ece-2026-a/assignments")));
+    await assertFails(
+      getDocs(query(collection(anon, "classes/ece-2026-a/assignments"), where("active", "==", false))),
+    );
+
+    // A limit() does not buy a visitor anything: the query is still unprovable.
+    await assertSucceeds(getDocs(query(collection(anon, "classes"), where("active", "==", true))));
+  });
+
+  it("lets a superadmin list everything, unfiltered, across classes", async () => {
+    await seedWorld(env);
+    await seedArchived(env);
+    await put(env, "classes/it-2026-b", classDoc({ active: false, name: "IT" }));
+    const admin = superadmin(env);
+
+    const classes = await assertSucceeds(getDocs(collection(admin, "classes")));
+    expect(classes.docs.map((d) => d.id).sort()).toEqual(["cse-2026-a", "ece-2026-a", "it-2026-b"]);
+
+    const assignments = await assertSucceeds(getDocs(collection(admin, "classes/ece-2026-a/assignments")));
+    expect(assignments.docs.map((d) => d.id).sort()).toEqual(["a1", "archived"]);
+  });
+
+  it("locks a deactivated CR out of its own archive", async () => {
+    await seedWorld(env);
+    await seedArchived(env);
+    await put(env, "users/cr-a-uid", userDoc({ active: false }));
+    const revoked = revokedCr(env);
+
+    // The transfer revoked them; the public feed still works, the archive does not.
+    await assertSucceeds(
+      getDocs(query(collection(revoked, "classes/ece-2026-a/assignments"), where("active", "==", true))),
+    );
+    await assertFails(getDocs(collection(revoked, "classes/ece-2026-a/assignments")));
+    await assertFails(
+      getDocs(query(collection(revoked, "classes/ece-2026-a/assignments"), where("active", "==", false))),
+    );
+    await assertFails(getDoc(doc(revoked, "classes/ece-2026-a/assignments/archived")));
+  });
+
+  it("gives a self-registered stranger nothing beyond the public feed", async () => {
+    await seedWorld(env);
+    await seedArchived(env);
+    const s = stranger(env);
+
+    await assertSucceeds(
+      getDocs(query(collection(s, "classes/ece-2026-a/assignments"), where("active", "==", true))),
+    );
+    await assertFails(getDocs(collection(s, "classes/ece-2026-a/assignments")));
+    await assertFails(getDocs(collection(s, "classes")));
+    await assertFails(getDoc(doc(s, "classes/ece-2026-a/assignments/archived")));
   });
 });

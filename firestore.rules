@@ -29,6 +29,23 @@ rules_version = '2';
 //      (postedByEmail, crEmail, userEmail are simply absent from the lists) while
 //      still allowing contactEmail, which a CR publishes on purpose.
 //
+//   4. amSuperadmin() and isMyClass() both resolve to a single get() on the
+//      *caller's own* users/{uid} document, so for any one query they are
+//      constant — they do not vary across the documents in the result set, and
+//      Firestore can therefore evaluate them for the query as a whole. That is
+//      what lets a superadmin list every document, and a CR list their own
+//      class, with no filter.
+//
+//      `resource.data.active == true` is the opposite: it varies per document, so
+//      a query using that branch has to *say* active == true in its where()
+//      clause. An unfiltered list relying on it is rejected. Hence two rules a
+//      caller must respect, not one:
+//        - the public feed always queries where('active', '==', true)
+//        - a CR or superadmin may query their own scope unfiltered
+//      Omitting isMyClass() from a `list` line silently removes a CR's access to
+//      its own archived data, because active == false contradicts the public
+//      branch and no other branch would match. There is a test for exactly this.
+//
 // Test with:  npm run test:rules
 
 service cloud.firestore {
@@ -124,7 +141,7 @@ service cloud.firestore {
       allow get: if resource.data.active == true
                  || amSuperadmin()
                  || isMyClass(classId);
-      allow list: if resource.data.active == true || amSuperadmin();
+      allow list: if resource.data.active == true || amSuperadmin() || isMyClass(classId);
 
       allow create, update, delete: if amSuperadmin() && validClass();
     }
@@ -135,7 +152,7 @@ service cloud.firestore {
       allow get: if resource.data.active == true
                  || amSuperadmin()
                  || isMyClass(classId);
-      allow list: if resource.data.active == true || amSuperadmin();
+      allow list: if resource.data.active == true || amSuperadmin() || isMyClass(classId);
 
       allow create, update: if (amSuperadmin() || isMyClass(classId)) && validSubject();
       allow delete: if amSuperadmin() || isMyClass(classId);
@@ -147,7 +164,7 @@ service cloud.firestore {
       allow get: if resource.data.active == true
                  || amSuperadmin()
                  || isMyClass(classId);
-      allow list: if resource.data.active == true || amSuperadmin();
+      allow list: if resource.data.active == true || amSuperadmin() || isMyClass(classId);
 
       // A CR may only post as themselves. Keeps createdBy from being forged,
       // which is what makes postedByName trustworthy for students.
