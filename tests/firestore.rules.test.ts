@@ -185,6 +185,43 @@ describe("CR permissions", () => {
     );
   });
 
+  it("may edit an assignment but never its authorship", async () => {
+    await seedWorld(env);
+    const cr = crOfA(env);
+
+    // The ordinary edit, of the kind the M6 form makes.
+    await assertSucceeds(
+      updateDoc(doc(cr, paths.assignmentA), { title: "Assignment 1 (revised)", updatedAt: ts(0) }),
+    );
+
+    // But the fields that identify who posted, and when, are pinned. A CR who
+    // could rewrite createdBy could make their own work look like a colleague's,
+    // which is the one thing postedByName promises students it is not.
+    await assertFails(
+      updateDoc(doc(cr, paths.assignmentA), { createdBy: "cr-b-uid" }),
+    );
+    await assertFails(
+      updateDoc(doc(cr, paths.assignmentA), { createdAt: ts(-999_000) }),
+    );
+
+    // publishedName is the student-facing attribution. Leaving it editable is
+    // deliberate — a CR corrects a typo in their own name — but it is the reason
+    // createdBy above has to hold.
+    await assertSucceeds(updateDoc(doc(cr, paths.assignmentA), { postedByName: "A. Rao" }));
+  });
+
+  it("can deactivate and reactivate, and cannot deactivate another class's work", async () => {
+    await seedWorld(env);
+    const cr = crOfA(env);
+
+    // Soft delete, per §18. active is deliberately not pinned on update.
+    await assertSucceeds(updateDoc(doc(cr, paths.assignmentA), { active: false }));
+    await assertSucceeds(updateDoc(doc(cr, paths.assignmentA), { active: true }));
+
+    // And still nothing outside its own class.
+    await assertFails(updateDoc(doc(cr, paths.assignmentB), { active: false }));
+  });
+
   it("cannot escalate its own role, class or active flag", async () => {
     await seedWorld(env);
     const cr = crOfA(env);

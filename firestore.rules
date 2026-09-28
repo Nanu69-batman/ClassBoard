@@ -173,7 +173,17 @@ service cloud.firestore {
                         && validAssignment()
                         && request.resource.data.createdBy == request.auth.uid);
 
-      allow update, delete: if amSuperadmin() || isMyClass(classId);
+      // An edit may change the work, but never who posted it. createdBy and
+      // createdAt are pinned: postedByName is the student-facing attribution
+      // derived from createdBy, so a CR who could rewrite createdBy could make
+      // any of their class's assignments look like someone else's work.
+      // Reactivating a soft-deleted assignment is still allowed, which is why
+      // `active` is not pinned.
+      allow update: if (amSuperadmin() || isMyClass(classId))
+                    && request.resource.data.createdBy == resource.data.createdBy
+                    && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if amSuperadmin() || isMyClass(classId);
     }
 
     // ------------------------------------------------------------------- users

@@ -47,6 +47,26 @@ export type ClassInfo = {
   active: boolean;
 };
 
+/**
+ * An assignment as its class representative sees it.
+ *
+ * The student view never reads `active` — the feed is filtered before it reaches
+ * the card — but a CR does, because a soft-deleted assignment has to stay visible
+ * and restorable for them (§18). So the CR gets its own type, rather than the
+ * student one carrying a field nothing on that side reads.
+ */
+export type CrAssignment = Assignment & {
+  /**
+   * The subject's document id, as distinct from `subject` which is the
+   * denormalised display name. The edit form needs the id to preselect the right
+   * subject; the student card only ever shows the name.
+   */
+  subjectId: string;
+  active: boolean;
+  /** Optional address a CR publishes for submissions. Never a user's account email. */
+  contactEmail: string | null;
+};
+
 export type SubjectInfo = {
   id: string;
   classId: string;

@@ -1142,6 +1142,188 @@ select {
   cursor: not-allowed;
 }
 
+/* ------------------------------------------------------- CR compose panel -- */
+
+/*
+ * The container the add/edit form sits in. A raised panel rather than a modal, so
+ * posting an assignment never covers the list the CR is looking at — they can see
+ * the row they are correcting while they correct it.
+ */
+.panel {
+  margin: 0 0 1.1rem;
+  padding: 1.1rem 1.15rem 1.25rem;
+  background-color: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+
+.panel__title {
+  margin-bottom: 0.9rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.form__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.8rem;
+}
+
+/* Subject and priority side by side once there is room; stacked on a phone. */
+@media (min-width: 34rem) {
+  .form__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .field--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.input {
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0.4rem 0.7rem;
+  background-color: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+}
+
+.input:hover {
+  border-color: #c2c2cd;
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.field__optional {
+  margin-left: 0.3rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/*
+ * Wraps a native <select> so the chevron can sit inside the control. The select
+ * keeps its own padding-right and the arrow is pointer-events: none, so clicks
+ * still land on the real control and open the real menu.
+ */
+.select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.select-wrap .select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 1.9rem;
+}
+
+.select-wrap__chevron {
+  position: absolute;
+  right: 0.55rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.form__error {
+  margin-top: 0.85rem;
+  padding: 0.6rem 0.75rem;
+  background-color: var(--red-tint);
+  border: 1px solid var(--red-icon);
+  border-radius: var(--radius-sm);
+  color: var(--red-text);
+  font-size: 0.85rem;
+}
+
+.form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.form__actions .button {
+  flex: 1 1 auto;
+  min-height: 2.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button--primary {
+  background-color: var(--accent);
+  border: 1px solid var(--accent);
+  color: #ffffff;
+}
+
+.button--primary:hover:not(:disabled) {
+  background-color: var(--accent-text);
+  border-color: var(--accent-text);
+}
+
+.button--ghost {
+  background-color: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-soft);
+}
+
+.button--ghost:hover:not(:disabled) {
+  background-color: var(--surface);
+  color: var(--text);
+}
+
+/* A confirmation after a write. Distinct from .form__error, which is a failure. */
+.notice {
+  margin: 0 0 0.9rem;
+  padding: 0.6rem 0.75rem;
+  background-color: var(--green-tint);
+  border: 1px solid var(--green-icon);
+  border-radius: var(--radius-sm);
+  color: var(--green-text);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Archived rows are dimmed rather than hidden: they are still real work the CR
+   put up, they just are not showing on the class page any more. */
+.record--archived .record__title,
+.record--archived .record__description {
+  color: var(--text-muted);
+}
+
+.badge--archived {
+  background-color: #ecedf1;
+  color: var(--text-muted);
+}
+
+.record__meta .badge--archived {
+  margin-left: 0.4rem;
+}
+
+.record__actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.3rem;
+}
+
+.record__actions .link-button {
+  margin-top: 0;
+}
+
 /* ----------------------------------------------------------- breakpoints -- */
 
 @media (min-width: 30rem) {
