@@ -21,6 +21,11 @@ const AdminLoginRoute = lazy(() =>
 const AdminRoute = lazy(() =>
   import("./pages/privilegedRoutes").then((m) => ({ default: m.AdminRoute })),
 );
+// The invite landing page. Lazy for the same reason as the rest: it pulls in the
+// auth SDK, and a student who opens the app without a link has no use for it.
+const InviteRoute = lazy(() =>
+  import("./pages/inviteRoutes").then((m) => ({ default: m.InviteRoute })),
+);
 
 function Loading() {
   return (
@@ -54,6 +59,13 @@ export default function App() {
 
         <Route path="/cr/login" element={<CrLoginRoute />} />
         <Route path="/cr" element={<CrRoute />} />
+
+        {/*
+          The invite landing page. The only route in the app where an account can
+          be created, and the only one that can grant a role — so it is reachable
+          only by holding a token, and the page refuses to do anything without one.
+        */}
+        <Route path="/invite" element={<InviteRoute />} />
 
         <Route path="/admin/login" element={<AdminLoginRoute />} />
         <Route path="/admin" element={<AdminRoute />} />

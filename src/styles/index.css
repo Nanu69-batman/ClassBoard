@@ -1381,6 +1381,37 @@ select {
   background-color: #f6f6f9;
 }
 
+/* The sign-in / create-account switch on the invite page. */
+.auth-form__mode {
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.22rem;
+  margin-bottom: 0.15rem;
+  background-color: #ecedf1;
+  border-radius: var(--radius-pill);
+}
+
+.auth-form__mode .segmented__button {
+  border-radius: var(--radius-pill);
+}
+
+/*
+ * The signed-in identity on the invite page, above the accept button. Sits in a
+ * tinted box rather than as plain text, because it is the thing to check before
+ * accepting a role — accepting as the wrong account is the one mistake here that
+ * cannot be undone.
+ */
+.invite-identity {
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.75rem;
+  background-color: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.85rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
 .button--block {
   width: 100%;
 }

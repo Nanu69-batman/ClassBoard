@@ -300,6 +300,107 @@ describe("invites", () => {
     );
   });
 
+  /**
+   * The claim sequence, exactly as the invite page performs it.
+   *
+   * These two writes in this order are the whole onboarding flow, and the order
+   * is not a style choice: the profile rule requires `presentedInvite().usedBy ==
+   * request.auth.uid`, so the token has to be spent first or the profile write is
+   * refused. It cannot be a single batch, because rules evaluate get() against
+   * committed state rather than against the other writes in the same batch.
+   */
+  it("the claim sequence works: spend the token, then create the profile", async () => {
+    await seedWorld(env);
+    await put(env, paths.invite, inviteDoc({ used: false, usedBy: null }));
+
+    // A genuinely fresh uid, with no profile. Not crOfA2: seedWorld gives that one
+    // a users/{uid} document, which would make the profile write an *update* — a
+    // different rule, and one that correctly refuses to change a role.
+    const NEWCOMER = "newcomer-uid";
+    const newcomer = env.authenticatedContext(NEWCOMER).firestore();
+
+    // Step one: consume.
+    await assertSucceeds(
+      updateDoc(doc(newcomer, paths.invite), { used: true, usedBy: NEWCOMER }),
+    );
+    // Step two: the profile the rules now recognise.
+    await assertSucceeds(
+      setDoc(
+        doc(newcomer, `users/${NEWCOMER}`),
+        userDoc({ inviteToken: "tok-1", classId: "ece-2026-a" }),
+      ),
+    );
+
+    // And the result is a working CR of exactly that class.
+    await assertSucceeds(
+      setDoc(
+        doc(newcomer, "classes/ece-2026-a/assignments/first"),
+        assignmentDoc({ createdBy: NEWCOMER }),
+      ),
+    );
+    await assertFails(
+      setDoc(
+        doc(newcomer, "classes/cse-2026-a/assignments/overreach"),
+        assignmentDoc({ createdBy: NEWCOMER }),
+      ),
+    );
+  });
+
+  it("a tampered class in the link is refused at the profile write", async () => {
+    await seedWorld(env);
+    await put(env, paths.invite, inviteDoc({ used: false, usedBy: null }));
+
+    const NEWCOMER = "newcomer-uid";
+    const newcomer = env.authenticatedContext(NEWCOMER).firestore();
+    await assertSucceeds(
+      updateDoc(doc(newcomer, paths.invite), { used: true, usedBy: NEWCOMER }),
+    );
+
+    // The link said class B, the invite was issued for class A. Refused, so a
+    // swapped class id in a URL cannot grant the wrong class.
+    await assertFails(
+      setDoc(
+        doc(newcomer, `users/${NEWCOMER}`),
+        userDoc({ inviteToken: "tok-1", classId: "cse-2026-a" }),
+      ),
+    );
+  });
+
+  it("a profile cannot be created before its token is spent", async () => {
+    await seedWorld(env);
+    await put(env, paths.invite, inviteDoc({ used: false, usedBy: null }));
+
+    const NEWCOMER = "newcomer-uid";
+    const newcomer = env.authenticatedContext(NEWCOMER).firestore();
+
+    // The order matters, so this is asserted independently of the happy path.
+    await assertFails(
+      setDoc(
+        doc(newcomer, `users/${NEWCOMER}`),
+        userDoc({ inviteToken: "tok-1", classId: "ece-2026-a" }),
+      ),
+    );
+  });
+
+  it("a claim cannot be replayed onto a second account", async () => {
+    await seedWorld(env);
+    await put(env, paths.invite, inviteDoc({ used: false, usedBy: null }));
+
+    const first = env.authenticatedContext("first-uid").firestore();
+    await assertSucceeds(
+      updateDoc(doc(first, paths.invite), { used: true, usedBy: "first-uid" }),
+    );
+    await assertSucceeds(
+      setDoc(doc(first, "users/first-uid"), userDoc({ inviteToken: "tok-1" })),
+    );
+
+    // The same link, opened by someone else — the token is spent and the profile
+    // rule requires usedBy to be *this* user, so the second account gets nothing.
+    const second = env.authenticatedContext("second-uid").firestore();
+    await assertFails(updateDoc(doc(second, paths.invite), { used: true, usedBy: "second-uid" }));
+    await assertFails(setDoc(doc(second, "users/second-uid"), userDoc({ inviteToken: "tok-1" })));
+  });
+
   it("an unconsumed or unexpired invite does not grant anything", async () => {
     await seedWorld(env);
     await put(env, paths.invite, inviteDoc({ used: false, usedBy: null }));

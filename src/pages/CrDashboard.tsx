@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { toFriendlyError } from "../auth/errors";
 import { AssignmentForm, type Submission } from "../components/AssignmentForm";
 import { EmptyState } from "../components/EmptyState";
+import { PlusIcon } from "../components/icons";
 import { Listbox, type ListboxOption } from "../components/Listbox";
 import { PrivilegedShell, type NavItem } from "../components/PrivilegedShell";
 import { StatCards } from "../components/StatCards";
@@ -13,6 +14,7 @@ import {
   updateAssignment,
   type AssignmentDraft,
 } from "../data/crRepository";
+import { resolveAuthorName } from "../data/invites";
 import type { CrAssignment } from "../data/types";
 import { useCrAssignments, useCrClass, useCrSubjects } from "../hooks/useCrData";
 import { countAssignments, getDueLabel, sortAssignments } from "../utils/assignmentStatus";
@@ -65,7 +67,10 @@ export function CrDashboard() {
   // The name a student will see against this assignment. Falls back through the
   // profile and then the auth record, so a CR whose profile has no displayName
   // still publishes something rather than an empty string.
-  const authorName = profile?.displayName?.trim() || user?.displayName || "Your CR";
+  // A claimed account may have no display name at all, and the name published on
+  // every assignment has to be something. Same resolution as the invite path, so
+  // the two can never disagree about what this person's name is.
+  const authorName = resolveAuthorName(user);
 
   const all = assignments.data ?? [];
   const active = useMemo(() => all.filter((each) => each.active), [all]);
@@ -295,6 +300,7 @@ export function CrDashboard() {
                 setEditor({ mode: "create" });
               }}
             >
+              <PlusIcon size={15} />
               Post assignment
             </button>
           </div>

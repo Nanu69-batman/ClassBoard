@@ -94,11 +94,24 @@ export function MenuIcon({ size = 22, className }: IconProps) {
   );
 }
 
-/** Downward chevron, for a native select rendered with a custom arrow. */
+/** Downward chevron, for a select control with a custom arrow. */
 export function ChevronIcon({ size = 16, className }: IconProps) {
   return (
     <svg {...svgProps(size, className)}>
       <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+/**
+ * A plus, centred on the same 24-unit grid as every other icon here and sharing
+ * their stroke width, so it sits level with the label next to it rather than
+ * looking pasted on.
+ */
+export function PlusIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }
