@@ -445,6 +445,35 @@ describe("public document hygiene", () => {
     );
   });
 
+  it("accepts a dueNote, and still refuses an unlisted field", async () => {
+    await seedWorld(env);
+    const cr = crOfA(env);
+
+    // A standing note in place of a date: work that is not due on a particular
+    // day. The CR authors it, so it is as publishable as the description.
+    await assertSucceeds(
+      setDoc(
+        doc(cr, "classes/ece-2026-a/assignments/reading"),
+        assignmentDoc({ dueDate: "", dueNote: "No deadline for now", priority: "none" }),
+      ),
+    );
+
+    // And it reaches students, since they read the same collection.
+    const anon = env.unauthenticatedContext().firestore();
+    const feed = await assertSucceeds(
+      getDocs(query(collection(anon, "classes/ece-2026-a/assignments"), where("active", "==", true))),
+    );
+    expect(feed.docs.map((d) => d.id)).toContain("reading");
+
+    // hasOnly is still doing its job on the same collection.
+    await assertFails(
+      setDoc(
+        doc(cr, "classes/ece-2026-a/assignments/sloppy"),
+        assignmentDoc({ studentEmail: "leak@evil.test" }),
+      ),
+    );
+  });
+
   it("rejects unexpected fields on classes and subjects", async () => {
     await seedWorld(env);
     const admin = superadmin(env);

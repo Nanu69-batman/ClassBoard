@@ -34,6 +34,13 @@ const FEED_FAILED = {
   message: "Please try again.",
 };
 
+/**
+ * How long a completed card is allowed to animate settling into its new group.
+ * Must outlast the CSS animation, or the class is cleared mid-flight and the
+ * card snaps to its final state.
+ */
+const SETTLE_MS = 620;
+
 export function StudentDashboard() {
   const { isCompleted, toggleCompleted } = useAssignmentStatus();
   const selection = useStudentClass();
@@ -42,6 +49,16 @@ export function StudentDashboard() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [subject, setSubject] = useState(ALL_SUBJECTS);
   const [lastToggledId, setLastToggledId] = useState<string | null>(null);
+  const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
+
+  // Clear the "just completed" flag once the settle animation has played, so the
+  // next tick of a different card is not suppressed by an unrelated one.
+  useEffect(() => {
+    if (!justCompletedId) return;
+
+    const timer = window.setTimeout(() => setJustCompletedId(null), SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [justCompletedId]);
 
   // The listener opens as soon as there is an id, in parallel with the class
   // read, so the two round trips overlap instead of queueing.
@@ -99,6 +116,10 @@ export function StudentDashboard() {
 
   // Only chase focus for keyboard toggles; a pointer click should not scroll.
   const handleToggle = (id: string, viaKeyboard: boolean) => {
+    // Only the completing direction gets the acknowledgement. Un-completing a
+    // card moves it back up the page, where an animation would be noise.
+    if (!isCompleted(id)) setJustCompletedId(id);
+
     toggleCompleted(id);
     setLastToggledId(viaKeyboard ? id : null);
   };
@@ -161,6 +182,7 @@ export function StudentDashboard() {
           isCompleted={isCompleted}
           onToggle={handleToggle}
           lastToggledId={lastToggledId}
+          justCompletedId={justCompletedId}
         />
       )}
     </AppShell>

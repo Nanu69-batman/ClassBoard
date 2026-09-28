@@ -54,10 +54,10 @@ import type {
   SubjectInfo,
 } from "./types";
 
-const PRIORITIES: Priority[] = ["low", "normal", "high"];
+const PRIORITIES: Priority[] = ["none", "low", "normal", "high"];
 
 function toPriority(value: unknown): Priority {
-  return PRIORITIES.includes(value as Priority) ? (value as Priority) : "normal";
+  return PRIORITIES.includes(value as Priority) ? (value as Priority) : "none";
 }
 
 function toText(value: unknown, fallback = ""): string {
@@ -66,6 +66,14 @@ function toText(value: unknown, fallback = ""): string {
 
 function toDueDate(value: unknown): string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
+function toDueNote(value: unknown, dueDate: string): string | null {
+  if (dueDate) return null;
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed.slice(0, 120) : null;
 }
 
 function toSubject(classId: string, id: string, data: DocumentData): SubjectInfo {
@@ -79,6 +87,8 @@ function toSubject(classId: string, id: string, data: DocumentData): SubjectInfo
 }
 
 function toCrAssignment(classId: string, id: string, data: DocumentData): CrAssignment {
+  const dueDate = toDueDate(data.dueDate);
+
   return {
     id,
     classId,
@@ -89,7 +99,8 @@ function toCrAssignment(classId: string, id: string, data: DocumentData): CrAssi
     subject: toText(data.subjectName, "General"),
     title: toText(data.title, "Untitled assignment"),
     description: toText(data.description),
-    dueDate: toDueDate(data.dueDate),
+    dueDate,
+    dueNote: toDueNote(data.dueNote, dueDate),
     priority: toPriority(data.priority),
     attachment: typeof data.attachmentUrl === "string" ? data.attachmentUrl : null,
     postedBy: typeof data.postedByName === "string" ? data.postedByName : null,
@@ -177,7 +188,20 @@ export type AssignmentDraft = {
   subjectName: string;
   title: string;
   description: string;
+  /**
+   * Empty when the CR chose a standing note instead of a date. A CR can genuinely
+   * post reading that is not due on any particular day, and forcing a fake date
+   * onto it would make the student dashboard claim it is overdue.
+   */
   dueDate: string;
+  /**
+   * Shown in place of the date. Empty when there is a real date, so a document
+   * never carries both. Stored as an empty string rather than null because
+   * Firestore documents in this app use empty strings for "no value" consistently
+   * — `attachmentUrl`, `contactEmail` — and mixing the two would be worse than
+   * the redundancy. The mappers turn it back into null for the UI.
+   */
+  dueNote: string;
   priority: Priority;
 };
 
@@ -206,6 +230,7 @@ export async function createAssignment(
     title: draft.title,
     description: draft.description,
     dueDate: draft.dueDate,
+    dueNote: draft.dueNote,
     priority: draft.priority,
     // M7 replaces these two with a real Storage upload. Nulls keep the document
     // shape identical to the seeded one, so nothing downstream has to branch.
@@ -239,6 +264,7 @@ export async function updateAssignment(
     title: draft.title,
     description: draft.description,
     dueDate: draft.dueDate,
+    dueNote: draft.dueNote,
     priority: draft.priority,
     updatedAt: serverTimestamp(),
   });

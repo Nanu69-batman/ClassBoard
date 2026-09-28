@@ -1,8 +1,8 @@
-import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 
 import type { CrAssignment, Priority, SubjectInfo } from "../data/types";
 
-import { ChevronIcon } from "./icons";
+import { Listbox, type ListboxOption } from "./Listbox";
 
 /**
  * Add / edit an assignment (§16, §17).
@@ -12,37 +12,57 @@ import { ChevronIcon } from "./icons";
  *
  * ## What the form owns, and only that
  *
- * Subject, title, description, due date, priority. `updateAssignment` writes
- * exactly these and `updatedAt`. It never sends `createdBy`, `createdAt`,
- * `contactEmail` or an attachment, so editing cannot quietly drop them (§17:
- * "do not silently overwrite unrelated fields").
+ * Subject, title, description, the due date *or* the note, priority.
+ * `updateAssignment` writes exactly these and `updatedAt`. It never sends
+ * `createdBy`, `createdAt`, `contactEmail` or an attachment, so editing cannot
+ * quietly drop them (§17: "do not silently overwrite unrelated fields").
+ *
+ * ## A due date, or a note instead of one
+ *
+ * §16 makes the due date required, and that is the right default — most work
+ * genuinely is due on a day. But a CR sometimes posts something that is not due
+ * on any particular date: reading for next week, a lab slot still being arranged.
+ * Forcing a date onto that would make the student dashboard confidently claim the
+ * work is overdue, which is worse than saying nothing.
+ *
+ * So the date field can be swapped for a short standing note. Only one is ever
+ * written: a document with a date has `dueNote: null`, so a card never has to
+ * choose between them, and no card can show a date and a note at once.
  *
  * Attachment is absent on purpose. M7 adds the upload; until then the field is
- * not rendered at all rather than rendered disabled, because a control that
- * cannot be used should not look like one that can.
+ * not rendered at all rather than rendered disabled, because a control that cannot
+ * be used should not look like one that can.
  */
 
-/** §16: subject, title and due date are required. The rest are optional. */
-type Draft = {
-  subjectId: string;
-  title: string;
-  description: string;
-  dueDate: string;
-  priority: Priority;
-};
+/** The note written when a CR chooses "no deadline" and types nothing. */
+const DEFAULT_DUE_NOTE = "No deadline for now";
 
-const PRIORITY_OPTIONS: Array<{ value: Priority; label: string }> = [
+const PRIORITY_OPTIONS: ListboxOption[] = [
+  { value: "none", label: "No priority" },
   { value: "low", label: "Low" },
   { value: "normal", label: "Normal" },
   { value: "high", label: "High" },
 ];
 
+type Draft = {
+  subjectId: string;
+  title: string;
+  description: string;
+  /** True when the CR is using a standing note instead of a date. */
+  usesNote: boolean;
+  dueDate: string;
+  dueNote: string;
+  priority: Priority;
+};
+
 const EMPTY_DRAFT: Draft = {
   subjectId: "",
   title: "",
   description: "",
+  usesNote: false,
   dueDate: "",
-  priority: "normal",
+  dueNote: DEFAULT_DUE_NOTE,
+  priority: "none",
 };
 
 /** The native `max` for a date input is fine, but cap the far future too. */
@@ -55,11 +75,12 @@ type AssignmentFormProps = {
   /** Set while a write is in flight, to disable the submit button (§28). */
   isSaving: boolean;
   error: string | null;
-  onSubmit: (draft: Draft) => void;
+  onSubmit: (draft: Submission) => void;
   onCancel: () => void;
 };
 
-export type { Draft as AssignmentDraftValues };
+/** What the form hands back: the two due fields already resolved to one. */
+export type Submission = Omit<Draft, "usesNote">;
 
 export function AssignmentForm({
   assignment,
@@ -77,30 +98,39 @@ export function AssignmentForm({
 
   // Only active subjects are offered. An archived subject stays in the document
   // history but is not a sensible place to post new work. A subject that has
-  // since been deactivated is still shown, so editing an old assignment does not
-  // silently move it — the select's value simply keeps resolving.
-  const options = useMemo(
-    () => subjects.filter((each) => each.active || each.id === draft.subjectId),
-    [subjects, draft.subjectId],
-  );
+  // since been deactivated is still listed, so editing an old assignment does not
+  // silently move it — the selected value simply keeps resolving.
+  const subjectOptions: ListboxOption[] = subjects
+    .filter((each) => each.active || each.id === draft.subjectId)
+    .map((each) => ({
+      value: each.id,
+      label: each.name,
+      hint: each.active ? undefined : "archived",
+    }));
 
-  // Prefill once per assignment. Keyed on the id so opening the form for a
-  // different assignment resets it, rather than leaking the previous values.
+  // Prefill once per assignment. Keyed on the id, so opening the form for a
+  // different assignment resets it rather than leaking the previous values.
   useEffect(() => {
     setLocalError(null);
 
     if (!assignment) {
       // Default the subject to the first active one: with several subjects that
-      // is one less required field to think about, and it is always a valid value.
-      setDraft({ ...EMPTY_DRAFT, subjectId: options[0]?.id ?? "" });
+      // is one less required field to think about, and it is always valid.
+      setDraft({ ...EMPTY_DRAFT, subjectId: subjectOptions[0]?.value ?? "" });
       return;
     }
+
+    // An existing document decides the mode: no date means the CR chose a note,
+    // so the form opens showing the note rather than an empty date field.
+    const usesNote = !assignment.dueDate;
 
     setDraft({
       subjectId: assignment.subjectId,
       title: assignment.title,
       description: assignment.description,
+      usesNote,
       dueDate: assignment.dueDate,
+      dueNote: assignment.dueNote ?? DEFAULT_DUE_NOTE,
       priority: assignment.priority,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,17 +152,22 @@ export function AssignmentForm({
       setLocalError("Give the assignment a title.");
       return;
     }
-    if (!draft.dueDate) {
-      setLocalError("Pick a due date.");
+    if (!draft.usesNote && !draft.dueDate) {
+      setLocalError("Pick a due date, or switch to a note instead.");
       return;
     }
 
     onSubmit({
-      ...draft,
+      subjectId: draft.subjectId,
       title: draft.title.trim(),
       // An empty description is stored as an empty string, not null, so the
       // document shape never varies with which fields the CR filled in.
       description: draft.description.trim(),
+      // Exactly one of the two is ever sent, which is what keeps a card from
+      // having to decide what to show.
+      dueDate: draft.usesNote ? "" : draft.dueDate,
+      dueNote: draft.usesNote ? draft.dueNote.trim() || DEFAULT_DUE_NOTE : "",
+      priority: draft.priority,
     });
   }
 
@@ -145,26 +180,14 @@ export function AssignmentForm({
           <label className="field__label" htmlFor={`${fieldId}-subject`}>
             Subject
           </label>
-          <div className="select-wrap">
-            <select
-              id={`${fieldId}-subject`}
-              className="select"
-              value={draft.subjectId}
-              required
-              onChange={(event) => update("subjectId", event.target.value)}
-            >
-              <option value="" disabled>
-                Choose a subject
-              </option>
-              {options.map((each) => (
-                <option key={each.id} value={each.id}>
-                  {each.name}
-                  {each.active ? "" : " (archived)"}
-                </option>
-              ))}
-            </select>
-            <ChevronIcon size={15} className="select-wrap__chevron" aria-hidden="true" />
-          </div>
+          <Listbox
+            id={`${fieldId}-subject`}
+            options={subjectOptions}
+            value={draft.subjectId}
+            onChange={(value) => update("subjectId", value)}
+            placeholder="Choose a subject"
+            ariaLabel="Subject"
+          />
         </div>
 
         <div className="field">
@@ -196,40 +219,85 @@ export function AssignmentForm({
           />
         </div>
 
-        <div className="field">
-          <label className="field__label" htmlFor={`${fieldId}-due`}>
-            Due date
-          </label>
-          <input
-            id={`${fieldId}-due`}
-            className="input"
-            type="date"
-            value={draft.dueDate}
-            max={MAX_DUE_DATE}
-            required
-            onChange={(event) => update("dueDate", event.target.value)}
-          />
+        <div className="field field--wide">
+          <div className="field__label field__label--row">
+            <span>Due</span>
+
+            {/*
+              The mode switch. A radio group rather than a checkbox, because the
+              two options are mutually exclusive and a checkbox would read as
+              "also show a note" instead of "instead of a date".
+            */}
+            <span className="segmented segmented--sm" role="radiogroup" aria-label="Due as">
+              <button
+                type="button"
+                className="segmented__button"
+                role="radio"
+                aria-checked={!draft.usesNote}
+                onClick={() => update("usesNote", false)}
+              >
+                Date
+              </button>
+              <button
+                type="button"
+                className="segmented__button"
+                role="radio"
+                aria-checked={draft.usesNote}
+                onClick={() => update("usesNote", true)}
+              >
+                Note
+              </button>
+            </span>
+          </div>
+
+          {draft.usesNote ? (
+            <>
+              <label className="sr-only" htmlFor={`${fieldId}-note`}>
+                Note instead of a due date
+              </label>
+              <input
+                id={`${fieldId}-note`}
+                className="input"
+                type="text"
+                value={draft.dueNote}
+                maxLength={120}
+                placeholder={DEFAULT_DUE_NOTE}
+                onChange={(event) => update("dueNote", event.target.value)}
+              />
+              <p className="field__hint">
+                Shown to your class in place of a date. Use it for work that is not
+                due on a particular day.
+              </p>
+            </>
+          ) : (
+            <>
+              <label className="sr-only" htmlFor={`${fieldId}-due`}>
+                Due date
+              </label>
+              <input
+                id={`${fieldId}-due`}
+                className="input"
+                type="date"
+                value={draft.dueDate}
+                max={MAX_DUE_DATE}
+                required
+                onChange={(event) => update("dueDate", event.target.value)}
+              />
+            </>
+          )}
         </div>
 
         <div className="field">
           <label className="field__label" htmlFor={`${fieldId}-priority`}>
-            Priority <span className="field__optional">optional</span>
+            Priority
           </label>
-          <div className="select-wrap">
-            <select
-              id={`${fieldId}-priority`}
-              className="select"
-              value={draft.priority}
-              onChange={(event) => update("priority", event.target.value as Priority)}
-            >
-              {PRIORITY_OPTIONS.map((each) => (
-                <option key={each.value} value={each.value}>
-                  {each.label}
-                </option>
-              ))}
-            </select>
-            <ChevronIcon size={15} className="select-wrap__chevron" aria-hidden="true" />
-          </div>
+          <Listbox
+            id={`${fieldId}-priority`}
+            options={PRIORITY_OPTIONS}
+            value={draft.priority}
+            onChange={(value) => update("priority", value as Priority)}
+            ariaLabel="Priority"
+          />
         </div>
       </div>
 
@@ -245,7 +313,12 @@ export function AssignmentForm({
       )}
 
       <div className="form__actions">
-        <button type="button" className="button button--ghost" onClick={onCancel} disabled={isSaving}>
+        <button
+          type="button"
+          className="button button--ghost"
+          onClick={onCancel}
+          disabled={isSaving}
+        >
           Cancel
         </button>
         <button type="submit" className="button button--primary" disabled={isSaving}>

@@ -8,7 +8,15 @@
  * a backend rename does not ripple into the UI.
  */
 
-export type Priority = "low" | "normal" | "high";
+/**
+ * How urgent the work is, as chosen by the CR.
+ *
+ * `none` is the default and means "no priority was set" — the absence of a claim
+ * rather than a low level of urgency. It is a real value rather than `null` so
+ * that a document always has an explicit priority field, which keeps the
+ * student-facing card from having to guess whether the field is meaningful.
+ */
+export type Priority = "none" | "low" | "normal" | "high";
 
 export type Assignment = {
   id: string;
@@ -22,8 +30,21 @@ export type Assignment = {
   subject: string;
   title: string;
   description: string;
-  /** ISO date string, `YYYY-MM-DD`. Date only, no time component. */
+  /**
+   * ISO date string, `YYYY-MM-DD`. Date only, no time component.
+   *
+   * Empty when the CR deliberately posted work with no deadline. Empty is not the
+   * same as missing: a document with no due date at all is malformed data, and
+   * this is a real choice the CR made, so the two are told apart in the document
+   * by the presence of `dueNote`.
+   */
   dueDate: string;
+  /**
+   * A short standing note shown in place of a date when there is no deadline —
+   * "No deadline for now", "Reading for next week". Null when there *is* a date,
+   * so a card never shows a date and a note at once.
+   */
+  dueNote: string | null;
   priority: Priority;
   /** Public URL of an attachment, or null. Never the file bytes. */
   attachment: string | null;

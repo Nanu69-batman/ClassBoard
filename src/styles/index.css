@@ -462,20 +462,10 @@ select {
   white-space: nowrap;
 }
 
-.select {
-  flex: 1;
+/* The listbox fills the space the label leaves, so the two read as one row. */
+.filters__subject .listbox {
+  flex: 1 1 auto;
   min-width: 0;
-  min-height: 2.4rem;
-  padding: 0.35rem 0.7rem;
-  background-color: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  font-size: 0.88rem;
-  cursor: pointer;
-}
-
-.select:hover {
-  border-color: #c2c2cd;
 }
 
 /* ---------------------------------------------------------------- groups -- */
@@ -516,6 +506,11 @@ select {
 .row {
   --row-bar: var(--gray-bar);
   --row-due: var(--text-soft);
+
+  /* Anchors the completion wash overlay, and keeps the settle animation's
+     transform from being applied to a static-position box. */
+  position: relative;
+  overflow: hidden;
 
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -804,6 +799,259 @@ select {
   color: var(--text-soft);
   font-size: clamp(0.95rem, 2.6vw, 1.05rem);
   text-wrap: balance;
+}
+
+/* -------------------------------------------------------------- listbox -- */
+
+/*
+ * A built dropdown rather than a native <select>, because a native one cannot be
+ * animated: its menu is drawn by the OS and no stylesheet reaches it. Everything
+ * from .listbox__menu down is ordinary markup, so it can fade and lift.
+ *
+ * Two timings, both short on purpose. The menu is 110ms — long enough to read as
+ * motion, short enough that a filter never feels like it is waiting. The trigger
+ * is 120ms, matching every other control, so the whole app moves at one speed.
+ */
+.listbox {
+  position: relative;
+  min-width: 0;
+}
+
+.listbox__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.4rem;
+  padding: 0.4rem 0.7rem;
+  background-color: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.listbox__trigger:hover:not(:disabled) {
+  border-color: #c2c2cd;
+}
+
+.listbox__trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* The open state is the only one with a visible ring, so "the menu is showing" is
+   legible from the control alone. */
+.listbox--open .listbox__trigger {
+  background-color: #fbfbff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.listbox__trigger:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.listbox__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The placeholder state, before anything is chosen. Muted, not italic. */
+.listbox__value--empty {
+  color: var(--text-muted);
+}
+
+.listbox__chevron {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.listbox--open .listbox__chevron {
+  transform: rotate(180deg);
+}
+
+.listbox__menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  right: 0;
+  max-height: 15rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background-color: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-pop);
+  /* Fires on mount only, since the element is unmounted when closed. */
+  animation: listbox-in 110ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* The keyframes live outside @keyframes-prefers-reduced-motion because that query
+   is about motion, not about animation existing at all. */
+@keyframes listbox-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.listbox__option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  cursor: pointer;
+  /* The highlight follows the arrow keys, so it has to be instant — an animated
+     background here would lag a keypress and feel broken. */
+  transition: background-color 90ms ease;
+}
+
+.listbox__option--active {
+  background-color: #f2f2f6;
+}
+
+.listbox__option--selected {
+  font-weight: 650;
+  color: var(--accent-text);
+}
+
+.listbox__option--disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.listbox__option-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listbox__option-hint {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.listbox__tick {
+  flex: 0 0 auto;
+  color: var(--accent-text);
+}
+
+@keyframes row-fade {
+  from {
+    opacity: 0.4;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* --------------------------------------------------- completion animation -- */
+
+/*
+ * Ticking an assignment off moves the card from one group to another, so React
+ * unmounts it and mounts a new element in the Completed list. There is nothing to
+ * transition *between* — the two nodes are unrelated — so the acknowledgement is
+ * built from three short pieces rather than one cross-fade:
+ *
+ *   1. the tick draws itself in and the control presses
+ *   2. the card settles into the Completed group from a slight rise
+ *   3. a soft wash passes down the card once
+ *
+ * All three are GPU-friendly (transform and opacity only), and all three are
+ * skipped under prefers-reduced-motion. Nothing here changes a layout property, so
+ * marking work done never shifts the rows around it.
+ */
+.row__check-mark {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+  transform: scale(0.4);
+  opacity: 0;
+  transition:
+    transform 220ms cubic-bezier(0.2, 1.4, 0.4, 1),
+    opacity 140ms ease;
+}
+
+/* The tick appears only when the control is pressed in, so un-ticking retracts it
+   rather than leaving a tick behind. */
+.row__check[aria-pressed="true"] .row__check-mark {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.row[data-just-completed="true"] {
+  animation: row-settle 520ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes row-settle {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * The wash. A one-shot overlay rather than a background-colour transition, so it
+ * cannot be left half-applied if the card re-renders mid-animation.
+ */
+.row[data-just-completed="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(34, 197, 94, 0.16) 50%,
+    transparent 80%
+  );
+  pointer-events: none;
+  animation: row-wash 560ms ease-out;
+}
+
+@keyframes row-wash {
+  from {
+    transform: translateX(-100%);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
 }
 
 /* ---------------------------------------------------------- empty states -- */
@@ -1137,6 +1385,47 @@ select {
   width: 100%;
 }
 
+/*
+ * The shared button. Every button in the app is `.button` plus a variant, so the
+ * size, focus ring and press feedback are defined once here. Before this existed
+ * the sizing lived in `.form__actions .button`, which meant a `.button` rendered
+ * anywhere else — the "Post assignment" button, the guards' "Go to dashboard"
+ * link — had no padding and no size of its own.
+ */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  /* Only the properties that actually change, so nothing else repaints. */
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+
+/* A press that reads as a press: a small, fast dip. Not on :focus, so it cannot
+   fire from a keyboard focus and make the page feel like it is shaking. */
+.button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -1213,30 +1502,6 @@ select {
   font-weight: 500;
 }
 
-/*
- * Wraps a native <select> so the chevron can sit inside the control. The select
- * keeps its own padding-right and the arrow is pointer-events: none, so clicks
- * still land on the real control and open the real menu.
- */
-.select-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.select-wrap .select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding-right: 1.9rem;
-}
-
-.select-wrap__chevron {
-  position: absolute;
-  right: 0.55rem;
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
 .form__error {
   margin-top: 0.85rem;
   padding: 0.6rem 0.75rem;
@@ -1254,25 +1519,26 @@ select {
   margin-top: 1rem;
 }
 
-.form__actions .button {
+/* The submit button takes the remaining width; cancel stays at its own size. */
+.form__actions .button--ghost {
+  flex: 0 0 auto;
+}
+
+.form__actions .button--primary {
   flex: 1 1 auto;
-  min-height: 2.4rem;
-  padding: 0.45rem 1rem;
-  border-radius: var(--radius-sm);
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .button--primary {
   background-color: var(--accent);
   border: 1px solid var(--accent);
   color: #ffffff;
+  box-shadow: var(--shadow-soft);
 }
 
 .button--primary:hover:not(:disabled) {
   background-color: var(--accent-text);
   border-color: var(--accent-text);
+  box-shadow: var(--shadow-pop);
 }
 
 .button--ghost {
@@ -1331,8 +1597,8 @@ select {
     flex: 0 1 auto;
   }
 
-  .select {
-    width: auto;
+  /* Wide enough to hold a real subject name on one line. */
+  .filters__subject .listbox {
     min-width: 11rem;
   }
 
@@ -1433,5 +1699,20 @@ select {
   * {
     transition: none !important;
     animation: none !important;
+  }
+
+  /*
+   * The completion acknowledgement is the one place motion carries meaning —
+   * it is the only feedback that work was marked done. Removing it entirely
+   * would leave the tick appearing with no acknowledgement at all, so under
+   * reduced motion the wash is dropped and the settle is replaced by a plain
+   * opacity fade: the change is still noticeable, it just does not move.
+   */
+  .row[data-just-completed="true"] {
+    animation: row-fade 200ms ease-out;
+  }
+
+  .row[data-just-completed="true"]::after {
+    content: none;
   }
 }

@@ -37,11 +37,11 @@ import {
 import { db } from "../lib/firebase";
 import type { Assignment, ClassInfo, Loadable, Priority } from "./types";
 
-const PRIORITIES: Priority[] = ["low", "normal", "high"];
+const PRIORITIES: Priority[] = ["none", "low", "normal", "high"];
 
-/** Anything a document claims to be a priority is one of the three we render. */
+/** Anything a document claims to be a priority is one of the four we render. */
 function toPriority(value: unknown): Priority {
-  return PRIORITIES.includes(value as Priority) ? (value as Priority) : "normal";
+  return PRIORITIES.includes(value as Priority) ? (value as Priority) : "none";
 }
 
 function toText(value: unknown, fallback = ""): string {
@@ -57,6 +57,21 @@ function toDueDate(value: unknown): string {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
 }
 
+/**
+ * A standing note for work with no deadline, e.g. "No deadline for now".
+ *
+ * Deliberately blank when a real date exists, so a card never has to decide which
+ * of the two to show — a document carrying both is a CR mistake, and dropping the
+ * note in favour of the date is the recoverable reading.
+ */
+function toDueNote(value: unknown, dueDate: string): string | null {
+  if (dueDate) return null;
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed.slice(0, 120) : null;
+}
+
 function toClassInfo(id: string, data: DocumentData): ClassInfo {
   return {
     id,
@@ -69,13 +84,16 @@ function toClassInfo(id: string, data: DocumentData): ClassInfo {
 }
 
 function toAssignment(classId: string, id: string, data: DocumentData): Assignment {
+  const dueDate = toDueDate(data.dueDate);
+
   return {
     id,
     classId,
     subject: toText(data.subjectName, "General"),
     title: toText(data.title, "Untitled assignment"),
     description: toText(data.description),
-    dueDate: toDueDate(data.dueDate),
+    dueDate,
+    dueNote: toDueNote(data.dueNote, dueDate),
     priority: toPriority(data.priority),
     attachment: typeof data.attachmentUrl === "string" ? data.attachmentUrl : null,
     postedBy: typeof data.postedByName === "string" ? data.postedByName : null,

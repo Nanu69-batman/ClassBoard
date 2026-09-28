@@ -105,9 +105,14 @@ export function assignmentDoc(overrides: Record<string, unknown> = {}) {
     title: "Assignment 2",
     description: "Solve questions 1-10 from Unit 2.",
     dueDate: "2026-09-30",
+    // Empty, not null: this fixture has a real date, so it has no standing note.
+    // `contactEmail` is here too, because validAssignment() hasOnly() rejects the
+    // whole write if a single expected key is missing.
+    dueNote: "",
     priority: "high",
     attachmentUrl: null,
     attachmentName: null,
+    contactEmail: null,
     createdBy: "cr-a-uid",
     postedByName: "Asha Rao",
     createdAt: ts(0),

@@ -21,6 +21,9 @@ const PRIORITY_WEIGHT: Record<Priority, number> = {
   high: 0,
   normal: 1,
   low: 2,
+  // "No priority set" sorts last within a shared due date. It is an absence of a
+  // claim, so it should lose every tiebreak against an actual priority.
+  none: 3,
 };
 
 /**
@@ -78,6 +81,25 @@ export function formatDueDate(dueDate: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+/** Default wording when a CR posts work with no deadline and no note of their own. */
+export const NO_DEADLINE = "No deadline";
+
+/**
+ * What the card shows in place of a date.
+ *
+ * The CR's own note wins, then the usual relative phrasing, then "No deadline".
+ *
+ * The last case is deliberately a single message. An undated assignment could
+ * mean the CR chose that, or that a `dueDate` field went missing — the student
+ * cannot act on the difference, and the data does not distinguish them, so
+ * inventing a distinction here would only be a lie about what the system knows.
+ */
+export function getDueLabel(assignment: Assignment): string {
+  if (assignment.dueNote) return assignment.dueNote;
+  if (assignment.dueDate) return getRelativeDueText(assignment.dueDate);
+  return NO_DEADLINE;
 }
 
 /** Short due text such as `Due tomorrow` or `Overdue by 2 days`. */

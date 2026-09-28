@@ -29,6 +29,11 @@ rules_version = '2';
 //      (postedByEmail, crEmail, userEmail are simply absent from the lists) while
 //      still allowing contactEmail, which a CR publishes on purpose.
 //
+//      `dueNote` is in the list on purpose: it is the short standing note a CR
+//      writes for work with no deadline ("No deadline for now"), shown to students
+//      in place of a date. It is a field the CR authors, not a user attribute, so
+//      allowing it leaks nothing the account email rule was protecting.
+//
 //   4. amSuperadmin() and isMyClass() both resolve to a single get() on the
 //      *caller's own* users/{uid} document, so for any one query they are
 //      constant — they do not vary across the documents in the result set, and
@@ -107,8 +112,8 @@ service cloud.firestore {
 
     function validAssignment() {
       return request.resource.data.keys().hasOnly([
-        'subjectId', 'subjectName', 'title', 'description', 'dueDate', 'priority',
-        'attachmentUrl', 'attachmentName', 'contactEmail',
+        'subjectId', 'subjectName', 'title', 'description', 'dueDate', 'dueNote',
+        'priority', 'attachmentUrl', 'attachmentName', 'contactEmail',
         'createdBy', 'postedByName', 'createdAt', 'updatedAt', 'active'
       ]);
     }

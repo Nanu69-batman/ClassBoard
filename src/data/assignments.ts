@@ -47,6 +47,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(-4),
     priority: "high",
     attachment: "/files/math-assignment-1-sheet.txt",
+    dueNote: null,
   },
   {
     id: "math-002",
@@ -57,6 +58,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(0),
     priority: "high",
     attachment: "/files/math-assignment-2-sheet.txt",
+    dueNote: null,
   },
   {
     id: "math-003",
@@ -68,6 +70,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(6),
     priority: "low",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "physics-003",
@@ -79,6 +82,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(-2),
     priority: "normal",
     attachment: "/files/physics-lab-record-2.txt",
+    dueNote: null,
   },
   {
     id: "physics-004",
@@ -90,6 +94,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(1),
     priority: "normal",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "eee-001",
@@ -100,6 +105,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(2),
     priority: "normal",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "eee-002",
@@ -111,6 +117,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(12),
     priority: "low",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "programming-001",
@@ -122,6 +129,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(-1),
     priority: "normal",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "programming-002",
@@ -132,6 +140,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(3),
     priority: "high",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "programming-003",
@@ -143,6 +152,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(15),
     priority: "low",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "electronics-002",
@@ -154,6 +164,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(0),
     priority: "normal",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "electronics-004",
@@ -164,6 +175,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(9),
     priority: "normal",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "drawing-001",
@@ -175,6 +187,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(-1),
     priority: "high",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "drawing-002",
@@ -186,6 +199,7 @@ export const assignments: Assignment[] = [
     dueDate: isoDateFromToday(5),
     priority: "normal",
     attachment: null,
+    dueNote: null,
   },
 ];
 
@@ -204,6 +218,7 @@ const cseAssignments: Assignment[] = [
     dueDate: isoDateFromToday(1),
     priority: "high",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "os-002",
@@ -214,6 +229,7 @@ const cseAssignments: Assignment[] = [
     dueDate: isoDateFromToday(-2),
     priority: "normal",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "net-001",
@@ -224,6 +240,7 @@ const cseAssignments: Assignment[] = [
     dueDate: isoDateFromToday(4),
     priority: "normal",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "dbms-001",
@@ -234,6 +251,7 @@ const cseAssignments: Assignment[] = [
     dueDate: isoDateFromToday(-5),
     priority: "high",
     attachment: null,
+    dueNote: null,
   },
   {
     id: "dbms-002",
@@ -244,6 +262,7 @@ const cseAssignments: Assignment[] = [
     dueDate: isoDateFromToday(6),
     priority: "low",
     attachment: null,
+    dueNote: null,
   },
 ];
 

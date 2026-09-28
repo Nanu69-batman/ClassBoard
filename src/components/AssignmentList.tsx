@@ -6,6 +6,8 @@ type AssignmentListProps = {
   isCompleted: (id: string) => boolean;
   onToggle: (id: string, viaKeyboard: boolean) => void;
   lastToggledId: string | null;
+  /** The card that was ticked a moment ago, so it can animate settling in. */
+  justCompletedId?: string | null;
 };
 
 /**
@@ -17,6 +19,7 @@ export function AssignmentList({
   isCompleted,
   onToggle,
   lastToggledId,
+  justCompletedId = null,
 }: AssignmentListProps) {
   return (
     <div className="groups">
@@ -34,6 +37,7 @@ export function AssignmentList({
                 isCompleted={isCompleted(assignment.id)}
                 onToggle={onToggle}
                 restoreFocus={assignment.id === lastToggledId}
+                justCompleted={assignment.id === justCompletedId}
               />
             ))}
           </div>

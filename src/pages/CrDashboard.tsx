@@ -2,8 +2,9 @@ import { useMemo, useState } from "react";
 
 import { useAuth } from "../auth/AuthProvider";
 import { toFriendlyError } from "../auth/errors";
-import { AssignmentForm, type AssignmentDraftValues } from "../components/AssignmentForm";
+import { AssignmentForm, type Submission } from "../components/AssignmentForm";
 import { EmptyState } from "../components/EmptyState";
+import { Listbox, type ListboxOption } from "../components/Listbox";
 import { PrivilegedShell, type NavItem } from "../components/PrivilegedShell";
 import { StatCards } from "../components/StatCards";
 import {
@@ -14,7 +15,7 @@ import {
 } from "../data/crRepository";
 import type { CrAssignment } from "../data/types";
 import { useCrAssignments, useCrClass, useCrSubjects } from "../hooks/useCrData";
-import { countAssignments, getRelativeDueText, sortAssignments } from "../utils/assignmentStatus";
+import { countAssignments, getDueLabel, sortAssignments } from "../utils/assignmentStatus";
 
 const NAV: NavItem[] = [
   { id: "dashboard", label: "Dashboard" },
@@ -26,11 +27,11 @@ const NAV: NavItem[] = [
 /** Which assignments the list is showing. Archived work is never mixed in silently. */
 type Visibility = "active" | "archived" | "all";
 
-const VISIBILITY_LABELS: Record<Visibility, string> = {
-  active: "Active",
-  archived: "Archived",
-  all: "All",
-};
+const VISIBILITY_OPTIONS: ListboxOption[] = [
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+  { value: "all", label: "All" },
+];
 
 type Editor = { mode: "closed" } | { mode: "create" } | { mode: "edit"; assignment: CrAssignment };
 
@@ -104,15 +105,15 @@ export function CrDashboard() {
     }
   }
 
-  function handleSubmit(draft: AssignmentDraftValues) {
+  function handleSubmit(submission: Submission) {
     if (!classId) return;
 
     // The display name is denormalised from the subject document, so a student
     // sees it without a second read and a later subject rename cannot silently
     // rewrite history on assignments already posted.
-    const subject = subjects.data?.find((each) => each.id === draft.subjectId);
+    const subject = subjects.data?.find((each) => each.id === submission.subjectId);
     const payload: AssignmentDraft = {
-      ...draft,
+      ...submission,
       subjectName: subject?.name ?? "General",
     };
 
@@ -211,13 +212,13 @@ export function CrDashboard() {
               </div>
 
               <p className="record__aside">
-                <span className={`badge badge--priority-${assignment.priority}`}>
-                  {assignment.priority}
-                </span>
+                {assignment.priority !== "none" && (
+                  <span className={`badge badge--priority-${assignment.priority}`}>
+                    {assignment.priority}
+                  </span>
+                )}
                 <span className="record__date">
-                  {assignment.active
-                    ? getRelativeDueText(assignment.dueDate)
-                    : assignment.dueDate}
+                  {assignment.active ? getDueLabel(assignment) : assignment.dueDate}
                 </span>
 
                 <span className="record__actions">
@@ -297,7 +298,6 @@ export function CrDashboard() {
               Post assignment
             </button>
           </div>
-
           {editor.mode !== "closed" && (
             <div className="panel">
               <h3 className="panel__title">
@@ -322,18 +322,17 @@ export function CrDashboard() {
         <>
           <div className="toolbar">
             <h2 className="toolbar__title">Assignments</h2>
-            <div className="segmented" role="group" aria-label="Filter by status">
-              {(Object.keys(VISIBILITY_LABELS) as Visibility[]).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className="segmented__button"
-                  aria-pressed={visibility === value}
-                  onClick={() => setVisibility(value)}
-                >
-                  {VISIBILITY_LABELS[value]}
-                </button>
-              ))}
+            <div className="filters__subject">
+              <label className="filters__label" htmlFor="visibility-filter">
+                Show
+              </label>
+              <Listbox
+                id="visibility-filter"
+                options={VISIBILITY_OPTIONS}
+                value={visibility}
+                onChange={(value) => setVisibility(value as Visibility)}
+                ariaLabel="Filter assignments by status"
+              />
             </div>
           </div>
 
@@ -407,8 +406,8 @@ export function CrDashboard() {
                   <p className="record__title">{subject.name}</p>
                 </div>
                 <p className="record__aside">
-                  <span className="badge badge--upcoming">{subject.shortName}</span>
                   {!subject.active && <span className="badge badge--archived">Archived</span>}
+                  <span className="badge badge--upcoming">{subject.shortName}</span>
                 </p>
               </li>
             ))}
