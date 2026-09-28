@@ -3,7 +3,7 @@
  * to do calendar math itself.
  */
 
-import type { Assignment, Priority } from "../data/assignments";
+import type { Assignment, Priority } from "../data/types";
 
 export type AssignmentStatus =
   | "overdue"

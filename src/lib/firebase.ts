@@ -1,5 +1,5 @@
 /**
- * Firebase initialisation.
+ * Firebase initialisation — the part a student needs.
  *
  * ## Why the config below is committed
  *
@@ -20,12 +20,20 @@
  *
  * To point this at a different project, change these values. Copy them from
  * Firebase console → Project settings → Your apps.
+ *
+ * ## Why this file stops at Firestore
+ *
+ * A student reads the public feed and that is all. They never authenticate, so
+ * `firebase/auth` is dead weight on their critical path — and it is one of the
+ * larger modules in the SDK. Auth and Storage are initialised in
+ * `firebasePrivileged.ts`, which only the lazily loaded `/cr` and `/admin`
+ * bundles import. A student's download carries the Firestore SDK because M4
+ * genuinely puts real data on their dashboard; it does not carry the auth SDK,
+ * because nothing in their session needs it.
  */
 
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
 import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
@@ -49,9 +57,7 @@ const recaptchaSiteKey = "";
 
 export const firebaseApp = initializeApp(firebaseConfig);
 
-export const auth = getAuth(firebaseApp);
 export const db = getFirestore(firebaseApp);
-export const storage = getStorage(firebaseApp);
 
 /**
  * App Check attaches a proof-of-site token to outgoing requests, and Firebase
@@ -61,8 +67,8 @@ export const storage = getStorage(firebaseApp);
  *
  * Note it protects *automated* callers. A person using the real site still gets
  * a valid token, which is correct — they are a legitimate visitor. What it stops
- * is scripts using the committed API key to sign up accounts, burn quota, or
- * scrape Firestore directly.
+ * is scripts using the committed API key to scrape Firestore directly, which is
+ * now a live concern: the student feed is public and unauthenticated.
  *
  * Skipped when no site key is configured, so the app runs either way.
  */

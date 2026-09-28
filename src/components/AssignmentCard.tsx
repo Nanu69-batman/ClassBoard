@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { CalendarIcon, CheckIcon, PaperclipIcon } from "./icons";
-import type { Assignment } from "../data/assignments";
+import type { Assignment } from "../data/types";
 import {
   formatDueDate,
   getAssignmentStatus,
@@ -97,6 +97,12 @@ export function AssignmentCard({
             <PaperclipIcon size={13} />
             {assignment.attachment.startsWith("http") ? "Open link" : "Attachment"}
           </a>
+        )}
+
+        {/* Who set the work. Denormalised onto the document by the CR on purpose,
+            so a student can see it without any account or extra read. */}
+        {assignment.postedBy && (
+          <p className="row__posted-by">Posted by {assignment.postedBy}</p>
         )}
       </div>
 

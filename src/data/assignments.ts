@@ -1,30 +1,23 @@
 /**
  * Local assignment dataset.
  *
- * These are *application data* — the definition of what exists. A student's
- * completion state is personal state and lives separately in localStorage
- * (see `src/utils/storage.ts`).
+ * ## Scope: the privileged screens only, until M6 and M8
+ *
+ * The student dashboard reads Firestore through `src/data/feed.ts` and no longer
+ * imports this file — real data, with a live listener, per M4.
+ *
+ * `/cr` and `/admin` still render from here, because assignment CRUD and the
+ * admin screens land in M6 and M8. Those two pages are the only importers; when
+ * they move to the repository this file goes with them, along with
+ * `src/data/classes.ts`.
+ *
+ * The types are not duplicated: `Assignment` and friends now live in
+ * `src/data/types.ts`, which is what the repository produces.
  */
 
-export type Priority = "low" | "normal" | "high";
+import type { Assignment } from "./types";
 
-export type Assignment = {
-  id: string;
-  /**
-   * Owning class. In V2 this is implicit in the Firestore path
-   * `classes/{classId}/assignments/{id}`; it is explicit here so the privileged
-   * screens can scope by it before that repository lands in M6.
-   */
-  classId: string;
-  subject: string;
-  title: string;
-  description: string;
-  /** ISO date string, `YYYY-MM-DD`. Date only, no time component. */
-  dueDate: string;
-  priority: Priority;
-  /** Optional link to a file in `public/` or an external URL. */
-  attachment?: string | null;
-};
+export type { Assignment, Priority } from "./types";
 
 /**
  * Builds an ISO `YYYY-MM-DD` string for a day relative to today.

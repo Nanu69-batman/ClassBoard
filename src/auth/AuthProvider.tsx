@@ -18,7 +18,8 @@ import {
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
-import { auth, db } from "../lib/firebase";
+import { db } from "../lib/firebase";
+import { auth } from "../lib/firebasePrivileged";
 
 /** The `users/{uid}` document. The only authority on what a person may do. */
 export type UserProfile = {

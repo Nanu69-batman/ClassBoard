@@ -93,3 +93,12 @@ export function MenuIcon({ size = 22, className }: IconProps) {
     </svg>
   );
 }
+
+/** Downward chevron, for a native select rendered with a custom arrow. */
+export function ChevronIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}

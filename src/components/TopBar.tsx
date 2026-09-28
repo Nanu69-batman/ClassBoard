@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 
 import { MenuIcon, SearchIcon } from "./icons";
 
@@ -8,15 +8,18 @@ type TopBarProps = {
   isNavOpen: boolean;
   onMenuClick: () => void;
   menuRef: RefObject<HTMLButtonElement | null>;
+  /** The class switcher, rendered between the brand and the search field. */
+  switcher?: ReactNode;
 };
 
-/** Top bar: menu button and brand (small screens), search, student badge. */
+/** Top bar: menu button and brand (small screens), class switcher, search. */
 export function TopBar({
   query,
   onQueryChange,
   isNavOpen,
   onMenuClick,
   menuRef,
+  switcher = null,
 }: TopBarProps) {
   return (
     <header className="topbar">
@@ -35,6 +38,8 @@ export function TopBar({
 
         <p className="topbar__brand">classboard</p>
 
+        {switcher}
+
         <div className="topbar__search">
           <SearchIcon size={19} />
           <label className="sr-only" htmlFor="assignment-search">
@@ -50,10 +55,6 @@ export function TopBar({
             onChange={(event) => onQueryChange(event.target.value)}
           />
         </div>
-
-        <span className="avatar" aria-hidden="true">
-          A
-        </span>
       </div>
     </header>
   );

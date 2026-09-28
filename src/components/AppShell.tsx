@@ -13,9 +13,20 @@ type AppShellProps = {
   /** Search lives in the top bar but belongs to the page, so the page owns it. */
   query: string;
   onQueryChange: (value: string) => void;
+  /**
+   * The class switcher, or null when there is no class to switch between — the
+   * first-run picker and the unavailable-class notice pass null, since a
+   * switcher with nothing to switch to is just noise.
+   */
+  switcher?: ReactNode;
 };
 
-export function AppShell({ children, query, onQueryChange }: AppShellProps) {
+export function AppShell({
+  children,
+  query,
+  onQueryChange,
+  switcher = null,
+}: AppShellProps) {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const menuRef = useRef<HTMLButtonElement>(null);
   const navRef = useRef<HTMLAnchorElement>(null);
@@ -61,6 +72,7 @@ export function AppShell({ children, query, onQueryChange }: AppShellProps) {
           isNavOpen={isNavOpen}
           onMenuClick={() => setIsNavOpen((value) => !value)}
           menuRef={menuRef}
+          switcher={switcher}
         />
 
         <main className="content">{children}</main>

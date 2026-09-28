@@ -292,20 +292,6 @@ select {
   outline: none;
 }
 
-.avatar {
-  margin-left: auto;
-  display: grid;
-  place-items: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  flex: 0 0 auto;
-  border-radius: var(--radius-pill);
-  background-color: var(--accent-soft);
-  color: var(--accent-text);
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
 /* -------------------------------------------------------------- greeting -- */
 
 .greeting__title {
@@ -704,6 +690,12 @@ select {
   text-underline-offset: 3px;
 }
 
+.row__posted-by {
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 .row__due {
   grid-column: 2;
   grid-row: 2;
@@ -733,6 +725,120 @@ select {
 }
 
 /* ---------------------------------------------------------- empty states -- */
+
+/* --------------------------------------------------------- class switcher -- */
+
+/*
+ * A native <select> with the arrow replaced, so it matches the search field
+ * beside it. The control is a real button on every platform, so appearance is
+ * the only thing being customised — behaviour, keyboard handling and the mobile
+ * wheel all come from the browser.
+ */
+.class-switcher {
+  order: 2;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.class-switcher__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.class-switcher__select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  max-width: 15rem;
+  min-height: 2.35rem;
+  padding: 0.5rem 2rem 0.5rem 0.85rem;
+  background-color: #f2f2f6;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.class-switcher__select:hover:not(:disabled) {
+  background-color: #ebebf0;
+}
+
+.class-switcher__select:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.class-switcher__select:focus-visible {
+  background-color: var(--surface);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  outline: none;
+}
+
+.class-switcher__chevron {
+  position: absolute;
+  right: 0.6rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------- class picker -- */
+
+.picker {
+  max-width: 32rem;
+  margin: 0 auto;
+}
+
+.picker__title {
+  font-size: 1.35rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+}
+
+.picker__message {
+  margin-top: 0.4rem;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
+.picker__list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+  list-style: none;
+}
+
+.picker__option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-align: left;
+  cursor: pointer;
+}
+
+.picker__option:hover {
+  border-color: var(--accent);
+  background-color: #fbfbff;
+}
+
+.picker__option-name {
+  font-size: 0.98rem;
+  font-weight: 650;
+}
+
+.picker__option-meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
 
 .empty-state {
   padding: 2.5rem 1.5rem;
