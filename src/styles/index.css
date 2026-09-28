@@ -724,121 +724,171 @@ select {
   margin: 0 0.3rem;
 }
 
-/* ---------------------------------------------------------- empty states -- */
+/* ------------------------------------------------------------- landing page -- */
 
-/* --------------------------------------------------------- class switcher -- */
-
-/*
- * A native <select> with the arrow replaced, so it matches the search field
- * beside it. The control is a real button on every platform, so appearance is
- * the only thing being customised — behaviour, keyboard handling and the mobile
- * wheel all come from the browser.
- */
-.class-switcher {
-  order: 2;
-  flex: 0 1 auto;
-  min-width: 0;
+.landing {
+  min-height: 100vh;
+  background-color: var(--bg);
 }
 
-.class-switcher__control {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.class-switcher__select {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 100%;
-  max-width: 15rem;
-  min-height: 2.35rem;
-  padding: 0.5rem 2rem 0.5rem 0.85rem;
-  background-color: #f2f2f6;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-
-.class-switcher__select:hover:not(:disabled) {
-  background-color: #ebebf0;
-}
-
-.class-switcher__select:disabled {
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-
-.class-switcher__select:focus-visible {
-  background-color: var(--surface);
-  border-color: var(--accent);
-  color: var(--accent-text);
-  outline: none;
-}
-
-.class-switcher__chevron {
-  position: absolute;
-  right: 0.6rem;
-  color: var(--text-muted);
-  pointer-events: none;
-}
-
-/* --------------------------------------------------------- class picker -- */
-
-.picker {
-  max-width: 32rem;
+.landing__inner {
+  max-width: 46rem;
   margin: 0 auto;
+  padding: 1.5rem 1.1rem 3rem;
 }
 
-.picker__title {
-  font-size: 1.35rem;
-  font-weight: 750;
-  letter-spacing: -0.03em;
+.landing__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--accent-text);
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
 }
 
-.picker__message {
-  margin-top: 0.4rem;
+.landing__header {
+  padding: 1.5rem 0 1.75rem;
+}
+
+.landing__title {
+  max-width: 22ch;
+  margin-top: 1rem;
+  font-size: clamp(1.85rem, 6vw, 2.75rem);
+  font-weight: 780;
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+}
+
+.landing__lede {
+  max-width: 46ch;
+  margin-top: 0.75rem;
   color: var(--text-soft);
-  font-size: 0.92rem;
+  font-size: 1.02rem;
 }
 
-.picker__list {
+.landing__audiences {
   display: grid;
-  gap: 0.5rem;
-  margin-top: 1.1rem;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
   list-style: none;
 }
 
-.picker__option {
+.landing__card {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  width: 100%;
-  padding: 0.85rem 1rem;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 1.15rem 1.2rem;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  text-align: left;
-  cursor: pointer;
+  box-shadow: var(--shadow-soft);
 }
 
-.picker__option:hover {
+/* The CR card is the one with an action, so it is the one that gets emphasis. */
+.landing__card--cr {
   border-color: var(--accent);
   background-color: #fbfbff;
 }
 
-.picker__option-name {
-  font-size: 0.98rem;
+.landing__card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.landing__card-body {
+  color: var(--text-soft);
+  font-size: 0.93rem;
+}
+
+.landing__card .button {
+  margin-top: 0.35rem;
+}
+
+.landing__how {
+  margin-top: 2.25rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.landing__how-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.landing__steps {
+  display: grid;
+  gap: 0.9rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.landing__steps li {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr;
+  gap: 0.15rem 0.7rem;
+  counter-increment: step;
+}
+
+/* The number is drawn rather than in the markup, so the list stays countable. */
+.landing__steps li::before {
+  content: counter(step);
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.landing__step-label {
+  font-size: 0.95rem;
   font-weight: 650;
 }
 
-.picker__option-meta {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+.landing__step-body {
+  color: var(--text-soft);
+  font-size: 0.89rem;
 }
+
+.landing__footer {
+  margin-top: 2.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.landing__footnote {
+  max-width: 52ch;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.landing__admin-link {
+  display: inline-block;
+  margin-top: 0.85rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.landing__admin-link:hover {
+  color: var(--accent-text);
+}
+
+/* ---------------------------------------------------------- empty states -- */
 
 .empty-state {
   padding: 2.5rem 1.5rem;

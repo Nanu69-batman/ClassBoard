@@ -1,141 +1,118 @@
 /**
- * Which class a student is looking at.
+ * Which class a student's dashboard is showing.
  *
- * ## The shareable link is the real entry point
+ * ## A class is reached by link, never by browsing
  *
- * A CR posts `https://…/?class=ece-2026-a` wherever their class already talks,
- * and that link *is* how students join. So `?class=` wins over anything stored
- * locally: a link someone was sent must never be quietly ignored in favour of
- * whatever class this browser looked at last.
+ * Students have no accounts, so there is nothing to sign in to and no directory
+ * to browse. A CR posts their class link wherever the class already talks, and
+ * that link is the whole onboarding flow. There is deliberately no switcher and
+ * no class picker: a student is sent to their class, they do not go looking for
+ * one.
  *
- * Once read, the id is remembered, so refreshing or coming back later lands on
- * the same class without the link.
+ * The class id comes from the route, `/class/:classId`. It is remembered on open,
+ * so a refresh or a return visit lands on the same class without the link.
  *
  * ## What this is not
  *
- * Not a security boundary, and not an identity. Students have no accounts, so
- * any class id can be put in the URL by anyone. That is inherent to a public
- * feed: the rules already let a visitor read any *active* class, so switching
- * classes grants nothing. A bad or deactivated id resolves to a plain message
- * rather than an empty dashboard.
+ * Not a security boundary, and not an identity. Anyone can put any class id in
+ * the URL. That is inherent to a public feed: the rules already let a visitor
+ * read any *active* class, so knowing an id grants nothing a visitor did not
+ * already have. A bad or deactivated id resolves to a plain message.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 
-import { isClassActive } from "../data/feed";
-import type { ClassInfo, Loadable } from "../data/types";
+import { fetchClass } from "../data/feed";
+import type { ClassInfo } from "../data/types";
 import { loadClassId, saveClassId } from "../utils/storage";
 
-/** How a class id in the URL becomes the class being viewed. */
+/**
+ * Where a class id got to.
+ *
+ * `classId` is present while resolving and on success, so the assignments
+ * listener can open in parallel with the class read rather than strictly after
+ * it. On `unavailable` the id is kept too — it is what the message is about, and
+ * what a retry would re-check.
+ */
 export type ClassSelection =
-  /** Reading the link, or validating an unknown id. Nothing to show yet. */
-  | { status: "loading"; classId: string | null; error: null }
-  /** A class is chosen and readable. */
-  | { status: "ready"; classId: string; error: null }
-  /** The id does not name a class a student may see. */
-  | { status: "unavailable"; classId: string | null; error: null };
+  | { status: "loading"; classId: string | null; class: null }
+  | { status: "ready"; classId: string; class: ClassInfo }
+  | { status: "unavailable"; classId: string | null; class: null };
 
-export function useStudentClass() {
-  const [selection, setSelection] = useState<ClassSelection>(() => {
-    const fromLink = readClassFromLocation();
-    // A remembered class is trusted without a round trip: it was validated the
-    // first time, and the feed listener will still surface a deactivation.
-    const remembered = loadClassId();
+export function useStudentClass(): ClassSelection {
+  const params = useParams<{ classId: string }>();
+  const classId = sanitiseClassId(params.classId);
 
-    if (fromLink && fromLink !== remembered) {
-      saveClassId(fromLink);
-      return { status: "loading", classId: fromLink, error: null };
-    }
-
-    if (fromLink || remembered) {
-      return { status: "ready", classId: (fromLink ?? remembered) as string, error: null };
-    }
-
-    return { status: "loading", classId: null, error: null };
-  });
-
-  const { classId } = selection;
+  const [found, setFound] = useState<ClassInfo | null>(null);
+  const [isResolved, setIsResolved] = useState(false);
 
   useEffect(() => {
-    if (!classId || selection.status === "ready") return;
+    if (!classId) {
+      // The route matched but the segment is not a usable document id. Settle
+      // immediately rather than leaving the caller on "loading" forever, and
+      // never issue a Firestore read for it.
+      setFound(null);
+      setIsResolved(true);
+      return;
+    }
+
+    setFound(null);
+    setIsResolved(false);
 
     let cancelled = false;
 
-    void isClassActive(classId).then((isActive) => {
+    void fetchClass(classId).then((result) => {
       if (cancelled) return;
 
-      if (isActive) {
-        setSelection({ status: "ready", classId, error: null });
+      if (result) {
+        saveClassId(result.id);
+        setFound(result);
       } else {
-        // Forget it, so the next visit offers the picker instead of re-showing
-        // a link that will not resolve.
-        saveClassId(null);
-        setSelection({ status: "unavailable", classId, error: null });
+        // Deactivated, never existed, or a bad link — one outcome for the user.
+        // Stop remembering it so this browser is not stuck re-checking.
+        if (loadClassId() === classId) saveClassId(null);
       }
+
+      setIsResolved(true);
     });
 
     return () => {
       cancelled = true;
     };
-    // `selection.status` is intentionally not a dependency: this validates the
-    // id it was given, and including the status would re-run it after setting.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classId]);
 
-  /** Point the browser at a class, so the URL stays shareable and back works. */
-  const selectClass = useCallback((next: string) => {
-    saveClassId(next);
+  if (found) return { status: "ready", classId: classId as string, class: found };
 
-    const url = new URL(window.location.href);
-    url.searchParams.set("class", next);
-    window.history.replaceState(null, "", url);
+  if (!classId) {
+    // Unusable route segment. `isResolved` is true by the time this is reached,
+    // but the branch is written out rather than assumed so a future change to
+    // the effect cannot silently reintroduce a permanent spinner.
+    return isResolved
+      ? { status: "unavailable", classId: null, class: null }
+      : { status: "loading", classId: null, class: null };
+  }
 
-    setSelection({ status: "ready", classId: next, error: null });
-  }, []);
-
-  /** Forget the class and show the picker again. */
-  const clearClass = useCallback(() => {
-    saveClassId(null);
-
-    const url = new URL(window.location.href);
-    url.searchParams.delete("class");
-    window.history.replaceState(null, "", url);
-
-    setSelection({ status: "loading", classId: null, error: null });
-  }, []);
-
-  return { selection, selectClass, clearClass };
-}
-
-/** The `?class=` value, if the link names one. Never trusted, only read. */
-function readClassFromLocation(): string | null {
-  const raw = new URLSearchParams(window.location.search).get("class");
-  if (!raw) return null;
-
-  const trimmed = raw.trim();
-  // Firestore document ids are 1-1500 chars of anything but `/`, `.`, `..` and
-  // control characters. Rejecting the rest keeps a hostile `?class=` from
-  // reaching a document path at all.
-  if (!trimmed || trimmed.length > 1500) return null;
-  if (/[/.]/.test(trimmed) || trimmed === "." || trimmed === "..") return null;
-  if (/[\u0000-\u001f]/.test(trimmed)) return null;
-
-  return trimmed;
+  return isResolved
+    ? { status: "unavailable", classId, class: null }
+    : { status: "loading", classId, class: null };
 }
 
 /**
- * True when the selected class is still in the list of active classes.
+ * A route parameter, validated before it is used to build a document path.
  *
- * Used to react to a class being deactivated while the page is open: the feed
- * listener is what reports it, but the switcher also has to stop offering a class
- * that no longer exists, or the student can select one that renders nothing.
+ * react-router already URL-decodes, so the value here has been through a decoder
+ * once. Firestore document ids are 1-1500 characters, cannot contain `/`, and
+ * cannot be `.` or `..`. Anything else is refused outright, so a hostile
+ * `/class/…` cannot reach a path at all.
  */
-export function isClassStillListed(
-  selection: ClassSelection,
-  classes: Loadable<ClassInfo[]>,
-): boolean {
-  const { classId } = selection;
-  if (selection.status !== "ready" || classes.status !== "ready" || !classId) return true;
+function sanitiseClassId(raw: string | undefined): string | null {
+  if (typeof raw !== "string") return null;
 
-  return classes.data.some((each) => each.id === classId);
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 1500) return null;
+  if (/[/.]/.test(trimmed)) return null;
+  if (/[\u0000-\u001f]/.test(trimmed)) return null;
+
+  return trimmed;
 }

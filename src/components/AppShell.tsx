@@ -14,18 +14,20 @@ type AppShellProps = {
   query: string;
   onQueryChange: (value: string) => void;
   /**
-   * The class switcher, or null when there is no class to switch between — the
-   * first-run picker and the unavailable-class notice pass null, since a
-   * switcher with nothing to switch to is just noise.
+   * Which class this dashboard is showing, e.g. `ECE • 2026 • Section A`.
+   *
+   * Static text, not a control. There is no switcher: students are sent to their
+   * class by link and do not browse between them, so a dropdown here would be a
+   * control that only ever had one option.
    */
-  switcher?: ReactNode;
+  contextLabel?: string | null;
 };
 
 export function AppShell({
   children,
   query,
   onQueryChange,
-  switcher = null,
+  contextLabel = null,
 }: AppShellProps) {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const menuRef = useRef<HTMLButtonElement>(null);
@@ -72,7 +74,7 @@ export function AppShell({
           isNavOpen={isNavOpen}
           onMenuClick={() => setIsNavOpen((value) => !value)}
           menuRef={menuRef}
-          switcher={switcher}
+          contextLabel={contextLabel}
         />
 
         <main className="content">{children}</main>

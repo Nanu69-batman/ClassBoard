@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from "react";
+import type { RefObject } from "react";
 
 import { MenuIcon, SearchIcon } from "./icons";
 
@@ -8,18 +8,18 @@ type TopBarProps = {
   isNavOpen: boolean;
   onMenuClick: () => void;
   menuRef: RefObject<HTMLButtonElement | null>;
-  /** The class switcher, rendered between the brand and the search field. */
-  switcher?: ReactNode;
+  /** Which class the dashboard below is showing, or null when unknown. */
+  contextLabel?: string | null;
 };
 
-/** Top bar: menu button and brand (small screens), class switcher, search. */
+/** Top bar: menu button and brand (small screens), class name, search. */
 export function TopBar({
   query,
   onQueryChange,
   isNavOpen,
   onMenuClick,
   menuRef,
-  switcher = null,
+  contextLabel = null,
 }: TopBarProps) {
   return (
     <header className="topbar">
@@ -38,7 +38,7 @@ export function TopBar({
 
         <p className="topbar__brand">classboard</p>
 
-        {switcher}
+        {contextLabel && <p className="topbar__context">{contextLabel}</p>}
 
         <div className="topbar__search">
           <SearchIcon size={19} />

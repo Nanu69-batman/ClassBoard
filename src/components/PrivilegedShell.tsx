@@ -91,7 +91,7 @@ export function PrivilegedShell({
         <nav className="nav" aria-label="Main">
           <NavLink to="/" className="nav__item" onClick={close} end>
             <DocumentIcon size={19} />
-            Student dashboard
+            Home
           </NavLink>
         </nav>
 

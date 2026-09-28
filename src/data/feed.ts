@@ -152,17 +152,18 @@ export function subscribeToClassAssignments(
 }
 
 /**
- * Whether a class is still active, for validating a link before subscribing.
+ * The class behind a shared link, or null if it cannot be shown.
  *
  * A miss here is a permission denial, not an empty result: a deactivated class
- * refuses the read. So `false` covers "deactivated", "never existed" and "bad
- * link" alike, and the caller shows one plain message for all of them.
+ * refuses the read. So null covers "deactivated", "never existed" and "bad link"
+ * alike, and the caller shows one plain message for all of them.
  */
-export async function isClassActive(classId: string): Promise<boolean> {
+export async function fetchClass(classId: string): Promise<ClassInfo | null> {
   try {
     const snapshot = await getDoc(doc(db, `classes/${classId}`));
-    return snapshot.exists() && snapshot.data().active === true;
+    if (!snapshot.exists() || snapshot.data().active !== true) return null;
+    return toClassInfo(classId, snapshot.data());
   } catch {
-    return false;
+    return null;
   }
 }

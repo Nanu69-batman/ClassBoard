@@ -2,14 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "../components/AppShell";
 import { AssignmentList } from "../components/AssignmentList";
-import { ClassPicker, ClassSwitcher } from "../components/ClassSwitcher";
 import { EmptyState } from "../components/EmptyState";
 import { FilterBar, type StatusFilter } from "../components/FilterBar";
-import { Greeting } from "../components/Greeting";
 import { StatCards } from "../components/StatCards";
-import { useActiveClasses, useClassAssignments } from "../hooks/useAssignmentFeed";
+import { useClassAssignments } from "../hooks/useAssignmentFeed";
 import { useAssignmentStatus } from "../hooks/useAssignmentStatus";
-import { isClassStillListed, useStudentClass } from "../hooks/useStudentClass";
+import { useStudentClass } from "../hooks/useStudentClass";
 import { countAssignments, groupAssignmentsByStatus } from "../utils/assignmentStatus";
 
 const ALL_SUBJECTS = "all";
@@ -21,9 +19,14 @@ const CAUGHT_UP = {
 
 const LOADING = { title: "Loading assignments…", message: "Fetching your class feed." };
 
+/**
+ * Reached when a shared link names a class that cannot be shown. One message for
+ * every cause — deactivated, never existed, mistyped — because from here they are
+ * the same event and the fix is identical: ask the CR for a fresh link.
+ */
 const CLASS_UNAVAILABLE = {
   title: "This class is no longer active",
-  message: "The link may be out of date. Pick another class to continue.",
+  message: "The link may be out of date. Ask your class representative for a new one.",
 };
 
 const FEED_FAILED = {
@@ -33,24 +36,16 @@ const FEED_FAILED = {
 
 export function StudentDashboard() {
   const { isCompleted, toggleCompleted } = useAssignmentStatus();
-  const { selection, selectClass, clearClass } = useStudentClass();
-  const classes = useActiveClasses();
+  const selection = useStudentClass();
 
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [subject, setSubject] = useState(ALL_SUBJECTS);
   const [lastToggledId, setLastToggledId] = useState<string | null>(null);
 
-  const classId = selection.status === "ready" ? selection.classId : null;
-  const feed = useClassAssignments(classId);
-
-  // A class deactivated while the page is open stops being offered, and the
-  // student is returned to the picker rather than left on a dead dashboard.
-  const classIsListed = isClassStillListed(selection, classes);
-  useEffect(() => {
-    if (classId && !classIsListed && classes.status === "ready") clearClass();
-  }, [classId, classIsListed, classes.status, clearClass]);
-
+  // The listener opens as soon as there is an id, in parallel with the class
+  // read, so the two round trips overlap instead of queueing.
+  const feed = useClassAssignments(selection.class?.id ?? null);
   const assignments = feed.data ?? [];
 
   // Subjects come from the assignments actually in hand, not from a separate
@@ -108,48 +103,10 @@ export function StudentDashboard() {
     setLastToggledId(viaKeyboard ? id : null);
   };
 
-  // No class chosen yet: the first-run picker, unless the link named one that
-  // turned out to be unavailable.
   if (selection.status === "unavailable") {
     return (
-      <AppShell query={query} onQueryChange={setQuery} switcher={null}>
+      <AppShell query={query} onQueryChange={setQuery} contextLabel={null}>
         <EmptyState {...CLASS_UNAVAILABLE} />
-        {classes.status === "ready" && classes.data.length > 0 && (
-          <ClassPicker classes={classes.data} onSelect={selectClass} />
-        )}
-      </AppShell>
-    );
-  }
-
-  // No class at all. This is the fallback path, not the front door — the shared
-  // link is how students normally arrive.
-  if (!classId) {
-    if (classes.status === "loading") {
-      return (
-        <AppShell query={query} onQueryChange={setQuery} switcher={null}>
-          <EmptyState {...LOADING} />
-        </AppShell>
-      );
-    }
-
-    if (classes.status === "error") {
-      return (
-        <AppShell query={query} onQueryChange={setQuery} switcher={null}>
-          <EmptyState {...FEED_FAILED} />
-        </AppShell>
-      );
-    }
-
-    return (
-      <AppShell query={query} onQueryChange={setQuery} switcher={null}>
-        {classes.data.length === 0 ? (
-          <EmptyState
-            title="No classes are open yet"
-            message="Check back once your class representative has posted."
-          />
-        ) : (
-          <ClassPicker classes={classes.data} onSelect={selectClass} />
-        )}
       </AppShell>
     );
   }
@@ -177,19 +134,12 @@ export function StudentDashboard() {
     emptyState = CAUGHT_UP;
   }
 
-  const switcher =
-    classes.status === "ready" && classes.data.length > 0 ? (
-      <ClassSwitcher
-        classes={classes.data}
-        selectedId={classId}
-        onSelect={selectClass}
-      />
-    ) : null;
-
   return (
-    <AppShell query={query} onQueryChange={setQuery} switcher={switcher}>
-      <Greeting />
-
+    <AppShell
+      query={query}
+      onQueryChange={setQuery}
+      contextLabel={selection.class?.displayName ?? null}
+    >
       <StatCards counts={counts} />
 
       <div className="toolbar">
