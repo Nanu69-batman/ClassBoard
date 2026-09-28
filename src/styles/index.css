@@ -1502,6 +1502,27 @@ select {
   font-weight: 500;
 }
 
+.field__hint {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+/*
+ * The date-or-note switch. Sits under its own field rather than beside the label,
+ * and sits flush left so it reads as a qualifier on the input above it rather
+ * than as a control competing with the label.
+ */
+.field__switch {
+  align-self: flex-start;
+  margin-top: 0.45rem;
+  color: var(--accent-text);
+}
+
+.field__switch:hover {
+  color: var(--accent-text);
+  text-decoration-thickness: 2px;
+}
+
 .form__error {
   margin-top: 0.85rem;
   padding: 0.6rem 0.75rem;

@@ -25,9 +25,11 @@ import { Listbox, type ListboxOption } from "./Listbox";
  * Forcing a date onto that would make the student dashboard confidently claim the
  * work is overdue, which is worse than saying nothing.
  *
- * So the date field can be swapped for a short standing note. Only one is ever
- * written: a document with a date has `dueNote: null`, so a card never has to
- * choose between them, and no card can show a date and a note at once.
+ * So the date field can be swapped for a short standing note. The field's label
+ * follows whichever input is showing — "Due date" or "Note" — so the label and
+ * the control never disagree. Only one of the two is ever written: a document
+ * with a date has `dueNote: null`, so a card never has to choose between them,
+ * and no card can show a date and a note at once.
  *
  * Attachment is absent on purpose. M7 adds the upload; until then the field is
  * not rendered at all rather than rendered disabled, because a control that cannot
@@ -220,41 +222,24 @@ export function AssignmentForm({
         </div>
 
         <div className="field field--wide">
-          <div className="field__label field__label--row">
-            <span>Due</span>
+          {/*
+            The label is whichever field is actually showing, so it always names
+            the thing the CR is looking at. An earlier version labelled the row
+            "Due" with a Date/Note switch beside it, which meant the label and
+            the control disagreed — the row said one thing while the input
+            underneath was another.
 
-            {/*
-              The mode switch. A radio group rather than a checkbox, because the
-              two options are mutually exclusive and a checkbox would read as
-              "also show a note" instead of "instead of a date".
-            */}
-            <span className="segmented segmented--sm" role="radiogroup" aria-label="Due as">
-              <button
-                type="button"
-                className="segmented__button"
-                role="radio"
-                aria-checked={!draft.usesNote}
-                onClick={() => update("usesNote", false)}
-              >
-                Date
-              </button>
-              <button
-                type="button"
-                className="segmented__button"
-                role="radio"
-                aria-checked={draft.usesNote}
-                onClick={() => update("usesNote", true)}
-              >
-                Note
-              </button>
-            </span>
-          </div>
+            The switch is now a single text button under the input, saying what it
+            will do ("use a note instead"), rather than a two-state control
+            restating the two options the label already switches between.
+          */}
+          <label className="field__label" htmlFor={draft.usesNote ? `${fieldId}-note` : `${fieldId}-due`}>
+            {draft.usesNote ? "Note" : "Due date"}
+            {draft.usesNote && <span className="field__optional">optional</span>}
+          </label>
 
           {draft.usesNote ? (
             <>
-              <label className="sr-only" htmlFor={`${fieldId}-note`}>
-                Note instead of a due date
-              </label>
               <input
                 id={`${fieldId}-note`}
                 className="input"
@@ -271,9 +256,6 @@ export function AssignmentForm({
             </>
           ) : (
             <>
-              <label className="sr-only" htmlFor={`${fieldId}-due`}>
-                Due date
-              </label>
               <input
                 id={`${fieldId}-due`}
                 className="input"
@@ -285,6 +267,21 @@ export function AssignmentForm({
               />
             </>
           )}
+
+          {/*
+            Not a checkbox, and not a pressed-state toggle. A checkbox beside a
+            date field reads as "also send a note", when the real relationship is
+            that the note replaces the date. A button whose label names the change
+            it will make — "use a note instead" / "use a due date instead" —
+            cannot be misread that way, and needs no second control kept in step.
+          */}
+          <button
+            type="button"
+            className="link-button field__switch"
+            onClick={() => update("usesNote", !draft.usesNote)}
+          >
+            {draft.usesNote ? "Use a due date instead" : "No due date? Use a note instead"}
+          </button>
         </div>
 
         <div className="field">
