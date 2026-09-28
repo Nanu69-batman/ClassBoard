@@ -724,168 +724,86 @@ select {
   margin: 0 0.3rem;
 }
 
-/* ------------------------------------------------------------- landing page -- */
+/* ------------------------------------------------------------- front door -- */
 
-.landing {
+/*
+ * One screen, one sentence. The only page in the app with no functional
+ * controls, so it does its own thing rather than borrowing the app shell.
+ *
+ * The wordmark is the largest type in the project by a wide margin, and the
+ * gradient is the only use of the accent ramp at display size. Everything here
+ * is a single centred column so there is no layout to break at any width.
+ */
+.front {
+  position: relative;
+  display: grid;
+  place-items: center;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding: 2rem 1.25rem;
   background-color: var(--bg);
 }
 
-.landing__inner {
-  max-width: 46rem;
-  margin: 0 auto;
-  padding: 1.5rem 1.1rem 3rem;
+/*
+ * A single soft wash behind the wordmark, offset up and left. Fixed rather than
+ * absolutely positioned so it cannot add a scrollbar, and centred under the text
+ * so it reads as a glow rather than a separate shape.
+ */
+.front__glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      38rem 38rem at 50% 34%,
+      rgba(79, 70, 229, 0.16) 0%,
+      rgba(79, 70, 229, 0.05) 42%,
+      transparent 68%
+    ),
+    radial-gradient(
+      26rem 26rem at 78% 78%,
+      rgba(34, 197, 94, 0.1) 0%,
+      transparent 60%
+    );
 }
 
-.landing__brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  color: var(--accent-text);
-  font-size: 1.15rem;
+.front__inner {
+  position: relative;
+  z-index: 1;
+  max-width: 34rem;
+  text-align: center;
+}
+
+.front__wordmark {
+  /* clamp keeps it inside the viewport at every width, including 320px. */
+  font-size: clamp(2.9rem, 15vw, 6.5rem);
   font-weight: 800;
-  letter-spacing: -0.035em;
+  line-height: 1;
+  letter-spacing: -0.055em;
+  background-image: linear-gradient(135deg, var(--accent) 0%, #7c3aed 48%, #2563eb 100%);
+  /* Keeps the gradient edges from bleeding outside the glyphs. */
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.landing__header {
-  padding: 1.5rem 0 1.75rem;
+/*
+ * Fallback for a browser without background-clip: text. The gradient is
+ * decoration, so a flat brand colour is the right failure, not an invisible word.
+ */
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .front__wordmark {
+    color: var(--accent-text);
+  }
 }
 
-.landing__title {
-  max-width: 22ch;
-  margin-top: 1rem;
-  font-size: clamp(1.85rem, 6vw, 2.75rem);
-  font-weight: 780;
-  line-height: 1.12;
-  letter-spacing: -0.04em;
-}
-
-.landing__lede {
-  max-width: 46ch;
-  margin-top: 0.75rem;
+.front__message {
+  margin-top: 1.4rem;
   color: var(--text-soft);
-  font-size: 1.02rem;
-}
-
-.landing__audiences {
-  display: grid;
-  gap: 0.7rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.landing__card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.4rem;
-  padding: 1.15rem 1.2rem;
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-soft);
-}
-
-/* The CR card is the one with an action, so it is the one that gets emphasis. */
-.landing__card--cr {
-  border-color: var(--accent);
-  background-color: #fbfbff;
-}
-
-.landing__card-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.landing__card-body {
-  color: var(--text-soft);
-  font-size: 0.93rem;
-}
-
-.landing__card .button {
-  margin-top: 0.35rem;
-}
-
-.landing__how {
-  margin-top: 2.25rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
-}
-
-.landing__how-title {
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.landing__steps {
-  display: grid;
-  gap: 0.9rem;
-  margin: 1rem 0 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: step;
-}
-
-.landing__steps li {
-  display: grid;
-  grid-template-columns: 1.6rem 1fr;
-  gap: 0.15rem 0.7rem;
-  counter-increment: step;
-}
-
-/* The number is drawn rather than in the markup, so the list stays countable. */
-.landing__steps li::before {
-  content: counter(step);
-  grid-row: 1 / span 2;
-  display: grid;
-  place-items: center;
-  width: 1.6rem;
-  height: 1.6rem;
-  border-radius: var(--radius-pill);
-  background-color: var(--accent-soft);
-  color: var(--accent-text);
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.landing__step-label {
-  font-size: 0.95rem;
-  font-weight: 650;
-}
-
-.landing__step-body {
-  color: var(--text-soft);
-  font-size: 0.89rem;
-}
-
-.landing__footer {
-  margin-top: 2.25rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
-}
-
-.landing__footnote {
-  max-width: 52ch;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-.landing__admin-link {
-  display: inline-block;
-  margin-top: 0.85rem;
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.landing__admin-link:hover {
-  color: var(--accent-text);
+  font-size: clamp(0.95rem, 2.6vw, 1.05rem);
+  text-wrap: balance;
 }
 
 /* ---------------------------------------------------------- empty states -- */
