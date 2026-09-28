@@ -8,6 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "seed": "node scripts/seed.mjs",
+    "seed:dry": "node scripts/seed.mjs --dry-run",
     "test:rules": "npx --yes firebase-tools@latest emulators:exec --only firestore --project demo-classboard \"vitest run\"",
     "test:rules:watch": "npx --yes firebase-tools@latest emulators:exec --only firestore --project demo-classboard \"vitest\"",
     "firebase:login": "npx --yes firebase-tools@latest login",
@@ -26,6 +28,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "firebase": "^12.19.0",
+    "firebase-admin": "^14.5.0",
     "typescript": "^5.9.3",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"

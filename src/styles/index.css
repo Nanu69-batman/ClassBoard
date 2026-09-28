@@ -753,6 +753,193 @@ select {
   font-size: 0.9rem;
 }
 
+/* ------------------------------------------------ privileged area surfaces -- */
+
+.nav__heading {
+  margin: 1.1rem 0 0.35rem;
+  padding: 0 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.nav__footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.nav__identity {
+  padding: 0 0.7rem 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar__context {
+  margin-left: auto;
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.section-lead {
+  margin-top: -0.5rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+/* Count tiles for the admin overview */
+.count-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.count-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.count-tile--pending {
+  background-color: var(--red-tint);
+  border-color: #fde3e3;
+}
+
+.count-tile--soon {
+  background-color: var(--amber-tint);
+  border-color: #fdeec4;
+}
+
+.count-tile--completed {
+  background-color: var(--green-tint);
+  border-color: #d3f5df;
+}
+
+.count-tile__value {
+  font-size: 1.5rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.count-tile__label {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+
+/* Record rows for lists in the privileged areas */
+.record-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.record {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+}
+
+.record__body {
+  min-width: 0;
+}
+
+.record__meta {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+
+.record__title {
+  margin-top: 0.1rem;
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.record__description {
+  margin-top: 0.3rem;
+  color: var(--text-soft);
+  font-size: 0.88rem;
+}
+
+.record__aside {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.record__date {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.record__date code,
+.record__meta code {
+  padding: 0.05rem 0.3rem;
+  background-color: #f2f3f7;
+  border-radius: 5px;
+  font-size: 0.78rem;
+}
+
+/* Key/value list for the account sections */
+.detail-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.detail {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.detail:last-child {
+  border-bottom: none;
+}
+
+.detail__label {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.detail__value {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
 /* --------------------------------------------------------- auth surfaces -- */
 
 .auth-page {

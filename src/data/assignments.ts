@@ -10,6 +10,12 @@ export type Priority = "low" | "normal" | "high";
 
 export type Assignment = {
   id: string;
+  /**
+   * Owning class. In V2 this is implicit in the Firestore path
+   * `classes/{classId}/assignments/{id}`; it is explicit here so the privileged
+   * screens can scope by it before that repository lands in M6.
+   */
+  classId: string;
   subject: string;
   title: string;
   description: string;
@@ -40,6 +46,7 @@ function isoDateFromToday(offsetDays: number): string {
 export const assignments: Assignment[] = [
   {
     id: "math-001",
+    classId: "ece-2026-a",
     subject: "Engineering Mathematics",
     title: "Assignment 1",
     description:
@@ -50,6 +57,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "math-002",
+    classId: "ece-2026-a",
     subject: "Engineering Mathematics",
     title: "Assignment 2",
     description: "Solve questions 1-10 from Unit 2.",
@@ -59,6 +67,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "math-003",
+    classId: "ece-2026-a",
     subject: "Engineering Mathematics",
     title: "Unit Test 1 Preparation",
     description:
@@ -69,6 +78,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "physics-003",
+    classId: "ece-2026-a",
     subject: "Physics",
     title: "Lab Record 2",
     description:
@@ -79,6 +89,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "physics-004",
+    classId: "ece-2026-a",
     subject: "Physics",
     title: "Lab Record 3",
     description:
@@ -89,6 +100,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "eee-001",
+    classId: "ece-2026-a",
     subject: "Basic Electrical Engineering",
     title: "Tutorial Sheet 1",
     description: "Complete the numerical problems from Unit 1 on network theorems.",
@@ -98,6 +110,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "eee-002",
+    classId: "ece-2026-a",
     subject: "Basic Electrical Engineering",
     title: "Mini Project Proposal",
     description:
@@ -108,6 +121,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "programming-001",
+    classId: "ece-2026-a",
     subject: "Programming",
     title: "Assignment 1",
     description:
@@ -118,6 +132,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "programming-002",
+    classId: "ece-2026-a",
     subject: "Programming",
     title: "Assignment 2",
     description: "Implement the given array problems.",
@@ -127,6 +142,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "programming-003",
+    classId: "ece-2026-a",
     subject: "Programming",
     title: "Mini Project Proposal",
     description:
@@ -137,6 +153,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "electronics-002",
+    classId: "ece-2026-a",
     subject: "Electronics",
     title: "Diode Characteristics Lab",
     description:
@@ -147,6 +164,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "electronics-004",
+    classId: "ece-2026-a",
     subject: "Electronics",
     title: "Transistor Biasing Problem Set",
     description: "Solve the eight biasing problems given in the class notes.",
@@ -156,6 +174,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "drawing-001",
+    classId: "ece-2026-a",
     subject: "Engineering Drawing",
     title: "Projection of Points Exercise",
     description:
@@ -166,6 +185,7 @@ export const assignments: Assignment[] = [
   },
   {
     id: "drawing-002",
+    classId: "ece-2026-a",
     subject: "Engineering Drawing",
     title: "Sectional Views Sheet",
     description:
@@ -176,9 +196,70 @@ export const assignments: Assignment[] = [
   },
 ];
 
+/**
+ * A second class, so the privileged screens can show that a CR really only sees
+ * their own class. The student dashboard reads `assignments` only; M4 gives it a
+ * class picker and this stops being needed.
+ */
+const cseAssignments: Assignment[] = [
+  {
+    id: "os-001",
+    classId: "cse-2026-a",
+    subject: "Operating Systems",
+    title: "Process Scheduling Assignment",
+    description: "Solve the given problems on FCFS, SJF and Round Robin.",
+    dueDate: isoDateFromToday(1),
+    priority: "high",
+    attachment: null,
+  },
+  {
+    id: "os-002",
+    classId: "cse-2026-a",
+    subject: "Operating Systems",
+    title: "Deadlock Lab Record",
+    description: "Complete the deadlock avoidance experiment and attach your observations.",
+    dueDate: isoDateFromToday(-2),
+    priority: "normal",
+    attachment: null,
+  },
+  {
+    id: "net-001",
+    classId: "cse-2026-a",
+    subject: "Computer Networks",
+    title: "Client-Server Model Notes",
+    description: "Prepare short notes on the client-server model with diagrams.",
+    dueDate: isoDateFromToday(4),
+    priority: "normal",
+    attachment: null,
+  },
+  {
+    id: "dbms-001",
+    classId: "cse-2026-a",
+    subject: "Database Management Systems",
+    title: "Database Normalization",
+    description: "Convert the given relations to 3NF.",
+    dueDate: isoDateFromToday(-5),
+    priority: "high",
+    attachment: null,
+  },
+  {
+    id: "dbms-002",
+    classId: "cse-2026-a",
+    subject: "Database Management Systems",
+    title: "SQL Practice Set",
+    description: "Answer questions 1-20 from the practice set.",
+    dueDate: isoDateFromToday(6),
+    priority: "low",
+    attachment: null,
+  },
+];
+
 /** Every subject present in the dataset, alphabetically. */
 export function getSubjects(source: Assignment[] = assignments): string[] {
   return [...new Set(source.map((assignment) => assignment.subject))].sort((a, b) =>
     a.localeCompare(b),
   );
 }
+
+/** All sample assignments, both classes. For the privileged screens. */
+export const allSampleAssignments: Assignment[] = [...assignments, ...cseAssignments];
