@@ -56,13 +56,21 @@ const AuthContext = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  // Stays "loading" until we know whether there is a profile, so a guard never
-  // redirects on the strength of a null that has not loaded yet.
   const [profileChecked, setProfileChecked] = useState(false);
+  /**
+   * True once onAuthStateChanged has fired at least once.
+   *
+   * This is load-bearing. On a fresh mount `user` is null until the persisted
+   * session is restored, so reporting "signed-out" immediately makes every guard
+   * bounce a signed-in person to the login page — and because each route mounts
+   * its own provider, that becomes a redirect loop between /cr and /cr/login.
+   */
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (nextUser) => {
       setUser(nextUser);
+      setIsInitialized(true);
 
       if (!nextUser) {
         setProfile(null);
@@ -104,10 +112,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const role = profile?.role;
 
     return {
-      status: !signedIn ? "signed-out" : profileChecked ? "signed-in" : "loading",
+      status: !isInitialized
+        ? "loading"
+        : !signedIn
+          ? "signed-out"
+          : profileChecked
+            ? "signed-in"
+            : "loading",
       user,
       profile,
-      hasNoRole: signedIn && profileChecked && profile === null,
+      hasNoRole: isInitialized && signedIn && profileChecked && profile === null,
       isCr: role === "cr" && profile?.active === true,
       isSuperadmin: role === "superadmin" && profile?.active === true,
       signInWithGoogle,
@@ -115,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createAccountWithEmail,
       signOut,
     };
-  }, [user, profile, profileChecked, signInWithGoogle, signInWithEmail, createAccountWithEmail, signOut]);
+  }, [isInitialized, user, profile, profileChecked, signInWithGoogle, signInWithEmail, createAccountWithEmail, signOut]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
