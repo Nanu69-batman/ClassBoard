@@ -1,17 +1,23 @@
 import type { RefObject } from "react";
+import { NavLink } from "react-router-dom";
 
 import { DocumentIcon } from "./icons";
 
 type SidebarProps = {
-  /** Drawer state. Only meaningful below the large breakpoint. */
   isOpen: boolean;
   onClose: () => void;
-  navRef: RefObject<HTMLButtonElement | null>;
+  /** Focused when the drawer opens, so keyboard users land inside it. */
+  navRef: RefObject<HTMLAnchorElement | null>;
 };
 
 /**
- * Fixed sidebar on large screens, slide-in drawer on small ones. It lists one
- * destination because Assignments is the only screen.
+ * Fixed sidebar on large screens, slide-in drawer on small ones.
+ *
+ * Only Assignments is listed, which is what student navigation is: a class
+ * switcher, search and filters (§25). It deliberately does not read auth state
+ * — students have no account, and pulling the Firebase SDK into the dashboard
+ * just to render one conditional link would cost every student that download.
+ * Privileged surfaces carry their own navigation.
  */
 export function Sidebar({ isOpen, onClose, navRef }: SidebarProps) {
   return (
@@ -30,16 +36,10 @@ export function Sidebar({ isOpen, onClose, navRef }: SidebarProps) {
         <p className="brand">classboard</p>
 
         <nav className="nav" aria-label="Main">
-          <button
-            ref={navRef}
-            type="button"
-            className="nav__item nav__item--active"
-            aria-current="page"
-            onClick={onClose}
-          >
+          <NavLink to="/" className="nav__item nav__item--active" end onClick={onClose} ref={navRef}>
             <DocumentIcon size={19} />
             Assignments
-          </button>
+          </NavLink>
         </nav>
       </aside>
     </>
