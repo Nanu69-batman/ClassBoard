@@ -47,9 +47,7 @@ import type { ClassInfo } from "./types";
 /** Why a claim did not go through. Deliberately coarse — see OUTCOME_MESSAGES. */
 export type InviteFailure = "invite-invalid" | "already-has-role" | "unknown";
 
-export type ClaimOutcome = { ok: true } | { ok: false; reason: InviteFailure };
-
-/** An invite token, as read from the link. Never trusted beyond its shape. */
+export type ClaimOutcome = { ok: true } | { ok: false; reason: InviteFailure };/** An invite token, as read from the link. Never trusted beyond its shape. */
 export function readInviteToken(): string | null {
   const raw = new URLSearchParams(window.location.search).get("invite");
   if (typeof raw !== "string") return null;
@@ -104,40 +102,59 @@ export async function preflightClaim(classId: string): Promise<ClassInfo | null>
 }
 
 /**
- * The name that will appear on everything this CR posts.
+ * A handle, the way a CR is addressed by their class.
  *
- * Never a placeholder. A Google sign-in always has a verified name, but an
- * email/password account may have none at all, and "Your CR" written to a
- * student-visible `postedByName` is worse than no name: it looks deliberate and
- * tells a class nothing about who set the work.
+ * Lowercased and trimmed on the way in, so `Asha` and `asha` cannot become two
+ * visually identical handles. The character set is deliberately narrow — no
+ * spaces, no punctuation that reads ambiguously — because this appears next to a
+ * display name on every assignment.
  *
- * The local part of the email is the last resort, because it is at least true of
- * the person and is editable later from the CR's own Account section.
+ * The length bounds are mirrored in `validUsername()` in the rules. That is
+ * duplication on purpose: the form gives an instant answer, the rules are what
+ * actually hold, and the test suite pins that both agree.
  */
-export function resolveAuthorName(user: {
-  displayName?: string | null;
-  email?: string | null;
-} | null): string {
-  const fromAuth = user?.displayName?.trim();
-  if (fromAuth) return fromAuth;
+export const USERNAME_MIN = 3;
+export const USERNAME_MAX = 32;
 
-  const local = user?.email?.split("@")[0]?.trim();
-  if (local) return local;
+const USERNAME_PATTERN = /^[a-z0-9._]+$/;
 
-  return "Class representative";
+export function normaliseUsername(raw: string): string {
+  return raw.trim().toLowerCase();
 }
+
+/** Returns an error message, or null when the handle is acceptable. */
+export function validateUsername(raw: string): string | null {
+  const value = normaliseUsername(raw);
+
+  if (!value) return "Choose a username.";
+  if (value.length < USERNAME_MIN) return `At least ${USERNAME_MIN} characters.`;
+  if (value.length > USERNAME_MAX) return `At most ${USERNAME_MAX} characters.`;
+  if (!USERNAME_PATTERN.test(value)) {
+    return "Use lowercase letters, numbers, dots, underscores or hyphens.";
+  }
+
+  return null;
+}
+
+/** The public shape of a claimed class representative. */
+export type CrIdentity = {
+  displayName: string;
+  username: string;
+};
 
 /**
  * Spends the invite and writes the CR profile.
  *
- * `displayName` and `email` come from the Firebase Auth record, never from a form
- * field, so a student-visible `postedByName` can only ever be tied to a verified
- * identity and never a name someone typed into a text box.
+ * `displayName` and `username` are the CR's own, from the claim form. `email` is
+ * the only part taken from the Auth record, because that is the one thing in here
+ * that is actually verified — a name a person typed into their own profile is not
+ * a claim of identity, and the invite link is what binds it to one.
  */
 export async function claimInvite(
   token: string,
   classId: string,
-  user: { uid: string; displayName: string | null; email: string | null },
+  user: { uid: string; email: string | null },
+  identity: CrIdentity,
 ): Promise<ClaimOutcome> {
   // A profile that already exists means this account is already a CR or a
   // superadmin. Refusing here rather than letting the write fail keeps the
@@ -166,7 +183,8 @@ export async function claimInvite(
       role: "cr",
       classId,
       active: true,
-      displayName: user.displayName,
+      displayName: identity.displayName.trim(),
+      username: normaliseUsername(identity.username),
       email: user.email,
       inviteToken: token,
       createdAt: serverTimestamp(),

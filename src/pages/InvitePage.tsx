@@ -9,6 +9,10 @@ import {
   preflightClaim,
   readInviteClassId,
   readInviteToken,
+  validateUsername,
+  normaliseUsername,
+  USERNAME_MAX,
+  USERNAME_MIN,
   type ClaimOutcome,
   type InviteFailure,
 } from "../data/invites";
@@ -59,6 +63,11 @@ export function InvitePage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  // Who this CR is. Their own words, not whatever Google asserted about them.
+  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [identityError, setIdentityError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -140,15 +149,31 @@ export function InvitePage() {
   async function handleClaim() {
     if (!user || !token || !classId) return;
 
+    setIdentityError(null);
+
+    // Validate before spending the token. The first write is irreversible, so
+    // anything checkable has to be checked before it.
+    if (!displayName.trim()) {
+      setIdentityError("Enter the name your class will see.");
+      return;
+    }
+
+    const usernameProblem = validateUsername(username);
+    if (usernameProblem) {
+      setIdentityError(usernameProblem);
+      return;
+    }
+
     setIsBusy(true);
     setError(null);
     setPhase("claiming");
 
-    const result: ClaimOutcome = await claimInvite(token, classId, {
-      uid: user.uid,
-      displayName: user.displayName,
-      email: user.email,
-    });
+    const result: ClaimOutcome = await claimInvite(
+      token,
+      classId,
+      { uid: user.uid, email: user.email },
+      { displayName, username },
+    );
 
     setIsBusy(false);
 
@@ -292,6 +317,59 @@ export function InvitePage() {
             Signed in as <strong>{user?.email ?? "your account"}</strong>
           </p>
 
+          {/*
+            The identity form. The name and handle written here are what appear
+            against every assignment this CR posts, and they are the CR's own
+            choice — a Google account's display name is whatever was on the Google
+            profile, which for a student account is often a nickname or an old
+            name, and that is not what a class should see as the person setting
+            their deadlines.
+          */}
+          <div className="invite-form">
+            <div className="field">
+              <label className="field__label" htmlFor="invite-display-name">
+                Name your class will see
+              </label>
+              <input
+                id="invite-display-name"
+                className="input"
+                type="text"
+                value={displayName}
+                maxLength={80}
+                autoComplete="name"
+                placeholder="Asha Rao"
+                onChange={(event) => setDisplayName(event.target.value)}
+              />
+            </div>
+
+            <div className="field">
+              <label className="field__label" htmlFor="invite-username">
+                Username
+              </label>
+              <input
+                id="invite-username"
+                className="input"
+                type="text"
+                value={username}
+                maxLength={USERNAME_MAX}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="asha.rao"
+                onChange={(event) => setUsername(normaliseUsername(event.target.value))}
+              />
+              <p className="field__hint">
+                Lowercase letters, numbers, dots, underscores or hyphens.{" "}
+                {USERNAME_MIN}&ndash;{USERNAME_MAX} characters.
+              </p>
+            </div>
+
+            {identityError && (
+              <p className="form__error" role="alert">
+                {identityError}
+              </p>
+            )}
+          </div>
+
           <button
             type="button"
             className="button button--primary button--block"
@@ -301,15 +379,9 @@ export function InvitePage() {
             {phase === "claiming" ? "Accepting…" : "Accept invite"}
           </button>
 
-          {/*
-            A mismatch here means the signed-in account is not the one the superadmin
-            invited. Worth saying plainly, because the alternative — failing
-            silently at the rules — looks like a broken link.
-          */}
           <p className="field__hint">
-            This account will become the class representative for{" "}
-            {classInfo?.displayName}. If that is the wrong account, sign out and use
-            another one.
+            You are becoming the class representative for {classInfo?.displayName}. Both names
+            above are yours to change later from your account.
           </p>
         </>
       )}

@@ -126,6 +126,9 @@ export function userDoc(overrides: Record<string, unknown> = {}) {
   return {
     email: "cr@example.edu",
     displayName: "Asha Rao",
+    // The handle the CR chose in the claim form. present on every claimed profile;
+    // the rules require it on the self-service path.
+    username: "asha.rao",
     role: "cr",
     classId: "ece-2026-a",
     active: true,

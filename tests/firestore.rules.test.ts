@@ -401,6 +401,94 @@ describe("invites", () => {
     await assertFails(setDoc(doc(second, "users/second-uid"), userDoc({ inviteToken: "tok-1" })));
   });
 
+  it("a claim must carry a name and a usable username", async () => {
+    await seedWorld(env);
+    await put(env, paths.invite, inviteDoc({ used: false, usedBy: null }));
+
+    const NEWCOMER = "newcomer-uid";
+    const claim = () => {
+      const ctx = env.authenticatedContext(NEWCOMER).firestore();
+      return setDoc(
+        doc(ctx, `users/${NEWCOMER}`),
+        userDoc({ inviteToken: "tok-1", classId: "ece-2026-a" }),
+      );
+    };
+
+    const spend = () => {
+      const ctx = env.authenticatedContext(NEWCOMER).firestore();
+      return updateDoc(doc(ctx, paths.invite), { used: true, usedBy: NEWCOMER });
+    };
+
+    // The happy path, first, so the denials below are known to be about the
+    // field rather than about a token that was already spent.
+    await assertSucceeds(spend());
+    await assertSucceeds(claim());
+  });
+
+  it("refuses a claim with an empty or oversized username", async () => {
+    await seedWorld(env);
+    await put(env, paths.invite, inviteDoc({ used: false, usedBy: null }));
+
+    const NEWCOMER = "newcomer-uid";
+    const ctx = env.authenticatedContext(NEWCOMER).firestore();
+    await assertSucceeds(
+      updateDoc(doc(ctx, paths.invite), { used: true, usedBy: NEWCOMER }),
+    );
+
+    // Too short, too long, and absent. The character set is enforced in the form
+    // — Firestore rules cannot match a regex — but emptiness and length are
+    // bounded here, so a hand-crafted request cannot write a blank handle.
+    await assertFails(
+      setDoc(
+        doc(ctx, `users/${NEWCOMER}`),
+        userDoc({ inviteToken: "tok-1", username: "ab" }),
+      ),
+    );
+
+    await assertFails(
+      setDoc(
+        doc(ctx, `users/${NEWCOMER}`),
+        userDoc({ inviteToken: "tok-1", username: "x".repeat(40) }),
+      ),
+    );
+
+    const { username: _dropped, ...withoutUsername } = userDoc({ inviteToken: "tok-1" });
+    await assertFails(setDoc(doc(ctx, `users/${NEWCOMER}`), withoutUsername));
+  });
+
+  it("refuses a claim with no display name", async () => {
+    await seedWorld(env);
+    await put(env, paths.invite, inviteDoc({ used: false, usedBy: null }));
+
+    const NEWCOMER = "newcomer-uid";
+    const ctx = env.authenticatedContext(NEWCOMER).firestore();
+    await assertSucceeds(
+      updateDoc(doc(ctx, paths.invite), { used: true, usedBy: NEWCOMER }),
+    );
+
+    // A blank name would publish an empty byline on every assignment.
+    await assertFails(
+      setDoc(
+        doc(ctx, `users/${NEWCOMER}`),
+        userDoc({ inviteToken: "tok-1", displayName: "" }),
+      ),
+    );
+  });
+
+  it("still refuses a self-registered stranger writing their own username over one", async () => {
+    await seedWorld(env);
+    const s = stranger(env);
+
+    // The username belongs to the profile a superadmin or a valid invite created.
+    // A bare account cannot add one to itself by editing its own document.
+    await assertFails(
+      setDoc(
+        doc(s, "users/stranger-uid"),
+        userDoc({ role: "cr", username: "stolen.name" }),
+      ),
+    );
+  });
+
   it("an unconsumed or unexpired invite does not grant anything", async () => {
     await seedWorld(env);
     await put(env, paths.invite, inviteDoc({ used: false, usedBy: null }));

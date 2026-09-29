@@ -1412,6 +1412,16 @@ select {
   overflow-wrap: anywhere;
 }
 
+/* The name-and-handle block on the invite page. Left aligned like the auth form
+   above it, so the two halves of the page read as one column. */
+.invite-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-bottom: 0.9rem;
+  text-align: left;
+}
+
 .button--block {
   width: 100%;
 }

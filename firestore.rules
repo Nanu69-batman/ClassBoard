@@ -121,8 +121,22 @@ service cloud.firestore {
     function validUser() {
       return request.resource.data.keys().hasOnly([
         'email', 'displayName', 'role', 'classId', 'active', 'createdAt',
-        'updatedAt', 'inviteToken'
+        'updatedAt', 'inviteToken', 'username'
       ]);
+    }
+
+    /**
+     * A handle, not a name. Length-bounded here so the field is never empty and
+     * never a paragraph; the character set is enforced in the form, because
+     * Firestore rules cannot match a regular expression and a hand-written
+     * character-class test is not worth the risk of getting subtly wrong.
+     *
+     * Not required to be unique. See the note in docs/ClassBoard V2.md §38.
+     */
+    function validUsername() {
+      return request.resource.data.username is string
+        && request.resource.data.username.size() >= 3
+        && request.resource.data.username.size() <= 32;
     }
 
     function validInvite() {
@@ -203,10 +217,18 @@ service cloud.firestore {
       // Otherwise the only self-service path is claiming an invite, and the role
       // is pinned to 'cr' here. The class comes from the invite, and the invite
       // must already have been consumed by this exact user.
+      //
+      // displayName and username come from the claim form, not from the Auth
+      // record: what a CR is called on their class page is theirs to choose, not
+      // whatever Google happened to assert. The email is still taken from Auth,
+      // because that part is the one thing here that is actually verified.
       allow create: if amSuperadmin() && validUser()
         || (request.auth != null
             && request.auth.uid == uid
             && validUser()
+            && validUsername()
+            && request.resource.data.displayName is string
+            && request.resource.data.displayName.size() > 0
             && request.resource.data.role == 'cr'
             && request.resource.data.active == true
             && exists(inviteDocPath(request.resource.data.inviteToken))

@@ -14,7 +14,6 @@ import {
   updateAssignment,
   type AssignmentDraft,
 } from "../data/crRepository";
-import { resolveAuthorName } from "../data/invites";
 import type { CrAssignment } from "../data/types";
 import { useCrAssignments, useCrClass, useCrSubjects } from "../hooks/useCrData";
 import { countAssignments, getDueLabel, sortAssignments } from "../utils/assignmentStatus";
@@ -67,10 +66,11 @@ export function CrDashboard() {
   // The name a student will see against this assignment. Falls back through the
   // profile and then the auth record, so a CR whose profile has no displayName
   // still publishes something rather than an empty string.
-  // A claimed account may have no display name at all, and the name published on
-  // every assignment has to be something. Same resolution as the invite path, so
-  // the two can never disagree about what this person's name is.
-  const authorName = resolveAuthorName(user);
+  // What gets published as the author of every assignment. The CR chose this
+  // name themselves in the claim form, so it is never a placeholder and never
+  // whatever a Google profile happened to say. The fallback exists only so a
+  // profile written before this field existed cannot produce an empty byline.
+  const authorName = profile?.displayName?.trim() || "Class representative";
 
   const all = assignments.data ?? [];
   const active = useMemo(() => all.filter((each) => each.active), [all]);
@@ -430,6 +430,12 @@ export function CrDashboard() {
             <div className="detail">
               <dt className="detail__label">Name</dt>
               <dd className="detail__value">{profile?.displayName ?? "—"}</dd>
+            </div>
+            <div className="detail">
+              <dt className="detail__label">Username</dt>
+              <dd className="detail__value">
+                {profile?.username ? `@${profile.username}` : "—"}
+              </dd>
             </div>
             <div className="detail">
               <dt className="detail__label">Email</dt>
