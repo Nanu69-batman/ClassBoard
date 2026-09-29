@@ -432,12 +432,6 @@ export function CrDashboard() {
               <dd className="detail__value">{profile?.displayName ?? "—"}</dd>
             </div>
             <div className="detail">
-              <dt className="detail__label">Username</dt>
-              <dd className="detail__value">
-                {profile?.username ? `@${profile.username}` : "—"}
-              </dd>
-            </div>
-            <div className="detail">
               <dt className="detail__label">Email</dt>
               <dd className="detail__value">{user?.email ?? "—"}</dd>
             </div>

@@ -27,8 +27,6 @@ export type UserProfile = {
   classId?: string;
   active: boolean;
   displayName?: string;
-  /** The handle the CR chose at signup. Not guaranteed unique. */
-  username?: string;
   email?: string;
 };
 

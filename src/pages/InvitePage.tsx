@@ -9,10 +9,6 @@ import {
   preflightClaim,
   readInviteClassId,
   readInviteToken,
-  validateUsername,
-  normaliseUsername,
-  USERNAME_MAX,
-  USERNAME_MIN,
   type ClaimOutcome,
   type InviteFailure,
 } from "../data/invites";
@@ -66,7 +62,6 @@ export function InvitePage() {
 
   // Who this CR is. Their own words, not whatever Google asserted about them.
   const [displayName, setDisplayName] = useState("");
-  const [username, setUsername] = useState("");
   const [identityError, setIdentityError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -158,12 +153,6 @@ export function InvitePage() {
       return;
     }
 
-    const usernameProblem = validateUsername(username);
-    if (usernameProblem) {
-      setIdentityError(usernameProblem);
-      return;
-    }
-
     setIsBusy(true);
     setError(null);
     setPhase("claiming");
@@ -172,7 +161,7 @@ export function InvitePage() {
       token,
       classId,
       { uid: user.uid, email: user.email },
-      { displayName, username },
+      { displayName },
     );
 
     setIsBusy(false);
@@ -340,26 +329,8 @@ export function InvitePage() {
                 placeholder="Asha Rao"
                 onChange={(event) => setDisplayName(event.target.value)}
               />
-            </div>
-
-            <div className="field">
-              <label className="field__label" htmlFor="invite-username">
-                Username
-              </label>
-              <input
-                id="invite-username"
-                className="input"
-                type="text"
-                value={username}
-                maxLength={USERNAME_MAX}
-                autoComplete="off"
-                spellCheck={false}
-                placeholder="asha.rao"
-                onChange={(event) => setUsername(normaliseUsername(event.target.value))}
-              />
               <p className="field__hint">
-                Lowercase letters, numbers, dots, underscores or hyphens.{" "}
-                {USERNAME_MIN}&ndash;{USERNAME_MAX} characters.
+                This is the name shown against every assignment you post.
               </p>
             </div>
 
@@ -380,8 +351,8 @@ export function InvitePage() {
           </button>
 
           <p className="field__hint">
-            You are becoming the class representative for {classInfo?.displayName}. Both names
-            above are yours to change later from your account.
+            You are becoming the class representative for {classInfo?.displayName}. You can
+            change this name later from your account.
           </p>
         </>
       )}

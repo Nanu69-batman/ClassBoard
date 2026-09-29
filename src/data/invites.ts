@@ -101,54 +101,18 @@ export async function preflightClaim(classId: string): Promise<ClassInfo | null>
   }
 }
 
-/**
- * A handle, the way a CR is addressed by their class.
- *
- * Lowercased and trimmed on the way in, so `Asha` and `asha` cannot become two
- * visually identical handles. The character set is deliberately narrow — no
- * spaces, no punctuation that reads ambiguously — because this appears next to a
- * display name on every assignment.
- *
- * The length bounds are mirrored in `validUsername()` in the rules. That is
- * duplication on purpose: the form gives an instant answer, the rules are what
- * actually hold, and the test suite pins that both agree.
- */
-export const USERNAME_MIN = 3;
-export const USERNAME_MAX = 32;
-
-const USERNAME_PATTERN = /^[a-z0-9._]+$/;
-
-export function normaliseUsername(raw: string): string {
-  return raw.trim().toLowerCase();
-}
-
-/** Returns an error message, or null when the handle is acceptable. */
-export function validateUsername(raw: string): string | null {
-  const value = normaliseUsername(raw);
-
-  if (!value) return "Choose a username.";
-  if (value.length < USERNAME_MIN) return `At least ${USERNAME_MIN} characters.`;
-  if (value.length > USERNAME_MAX) return `At most ${USERNAME_MAX} characters.`;
-  if (!USERNAME_PATTERN.test(value)) {
-    return "Use lowercase letters, numbers, dots, underscores or hyphens.";
-  }
-
-  return null;
-}
-
 /** The public shape of a claimed class representative. */
 export type CrIdentity = {
   displayName: string;
-  username: string;
 };
 
 /**
  * Spends the invite and writes the CR profile.
  *
- * `displayName` and `username` are the CR's own, from the claim form. `email` is
- * the only part taken from the Auth record, because that is the one thing in here
- * that is actually verified — a name a person typed into their own profile is not
- * a claim of identity, and the invite link is what binds it to one.
+ * `displayName` is the CR's own, from the claim form. `email` is the only part
+ * taken from the Auth record, because that is the one thing in here that is
+ * actually verified — a name a person typed into their own profile is not a claim
+ * of identity, and the invite link is what binds it to one.
  */
 export async function claimInvite(
   token: string,
@@ -184,7 +148,6 @@ export async function claimInvite(
       classId,
       active: true,
       displayName: identity.displayName.trim(),
-      username: normaliseUsername(identity.username),
       email: user.email,
       inviteToken: token,
       createdAt: serverTimestamp(),
