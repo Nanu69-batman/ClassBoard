@@ -228,7 +228,7 @@ export function AdminDashboard() {
           </dl>
           <p className="section-lead">
             A superadmin can do anything a CR can, for any class. Password changes go through the
-            Firebase console.
+            Supabase dashboard.
           </p>
         </>
       )}

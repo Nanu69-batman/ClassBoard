@@ -1,187 +1,97 @@
 /**
- * Reading the student feed from Firestore.
+ * Reading the student feed from Supabase.
  *
- * This is the repository layer the student dashboard talks to. Everything above
- * it works with plain `Assignment` / `ClassInfo` objects and never sees a
- * Firestore document.
+ * Students have no account; they read as the `anon` role, and row-level
+ * security only ever returns active assignments of active classes to them. The
+ * `active` filters below are therefore belt-and-braces, not the boundary.
  *
- * ## Every query here filters on `active == true`, and that is not optional
+ * ## How "live" works
  *
- * The security rules authorise a `list` once for the whole result set. A branch
- * that varies per document (`resource.data.active == true`) therefore has to be
- * matched by the query's own `where()` clause, or Firestore cannot prove the
- * result set is safe and rejects the request outright. Dropping the filter does
- * not "return more" — it returns a permission error.
- *
- * That also means a student never *sees* a deactivated class. If one is linked
- * to, the read is refused, which is exactly how `useClassFeed` learns the class
- * is gone.
- *
- * ## No listener is opened until a class is known
- *
- * Students arrive with no identity, so there is nothing to subscribe on. A
- * listener needs a concrete class id, and every listener costs a connection.
+ * Firestore pushed whole documents. Here, every write to a class's assignments
+ * pings a public broadcast topic `class:<id>` carrying no data (see
+ * `notify_class_change` in the migration), and the feed refetches through RLS.
+ * A plain postgres-changes subscription would not do: it filters by RLS on the
+ * *new* row, so a student would never hear that an assignment was archived.
  */
 
-import {
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  query,
-  where,
-  type DocumentData,
-  type QuerySnapshot,
-} from "firebase/firestore";
-
-import { db } from "../lib/firebase";
-import type { Assignment, ClassInfo, Loadable, Priority } from "./types";
-
-const PRIORITIES: Priority[] = ["none", "low", "normal", "high"];
-
-/** Anything a document claims to be a priority is one of the four we render. */
-function toPriority(value: unknown): Priority {
-  return PRIORITIES.includes(value as Priority) ? (value as Priority) : "none";
-}
-
-function toText(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
+import { supabase } from "../lib/supabase";
+import { ASSIGNMENT_PUBLIC_COLUMNS, CLASS_COLUMNS, toAssignment, toClassInfo } from "./rows";
+import type { Assignment, ClassInfo, Loadable } from "./types";
 
 /**
- * A due date is only useful if it parses. A malformed or absent one becomes the
- * empty string, which `getDaysUntilDue` reports as "no due date" — the card
- * still renders, it just cannot claim to be overdue.
+ * Calls `load` now and again whenever the class's topic says something changed.
+ * Late results from a superseded load are dropped, so a slow response can never
+ * overwrite a newer one. Returns the unsubscribe function.
  */
-function toDueDate(value: unknown): string {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
-}
+export function watchClass(classId: string, load: () => Promise<void>): () => void {
+  const channel = supabase
+    .channel(`class:${classId}`)
+    .on("broadcast", { event: "changed" }, () => void load())
+    .subscribe((status) => {
+      // A reconnect may have missed pings; catch up.
+      if (status === "SUBSCRIBED") void load();
+    });
 
-/**
- * A standing note for work with no deadline, e.g. "No deadline for now".
- *
- * Deliberately blank when a real date exists, so a card never has to decide which
- * of the two to show — a document carrying both is a CR mistake, and dropping the
- * note in favour of the date is the recoverable reading.
- */
-function toDueNote(value: unknown, dueDate: string): string | null {
-  if (dueDate) return null;
-  if (typeof value !== "string") return null;
+  void load();
 
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed.slice(0, 120) : null;
-}
-
-function toClassInfo(id: string, data: DocumentData): ClassInfo {
-  return {
-    id,
-    name: toText(data.name),
-    batch: toText(data.batch),
-    section: toText(data.section),
-    displayName: toText(data.displayName, id),
-    active: data.active === true,
+  return () => {
+    void supabase.removeChannel(channel);
   };
 }
 
-function toAssignment(classId: string, id: string, data: DocumentData): Assignment {
-  const dueDate = toDueDate(data.dueDate);
-
-  return {
-    id,
-    classId,
-    subject: toText(data.subjectName, "General"),
-    title: toText(data.title, "Untitled assignment"),
-    description: toText(data.description),
-    dueDate,
-    dueNote: toDueNote(data.dueNote, dueDate),
-    priority: toPriority(data.priority),
-    attachment: typeof data.attachmentUrl === "string" ? data.attachmentUrl : null,
-    postedBy: typeof data.postedByName === "string" ? data.postedByName : null,
-  };
-}
-
-/**
- * Every active class, for the switcher and the first-run picker.
- *
- * Deactivated classes are absent by construction, which is what keeps them out of
- * the picker (§4 of M4). The listener also keeps the list fresh: if a class is
- * deactivated while the page is open, it disappears from the switcher.
- */
-export function subscribeToActiveClasses(
-  onChange: (state: Loadable<ClassInfo[]>) => void,
-): () => void {
-  const q = query(collection(db, "classes"), where("active", "==", true));
-
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      const classes = snapshot.docs
-        .map((each) => toClassInfo(each.id, each.data()))
-        .sort((a, b) => a.displayName.localeCompare(b.displayName));
-
-      onChange({ status: "ready", data: classes, error: null });
-    },
-    (error) => {
-      // Logged for development; the user only ever sees the friendly text (§29).
-      console.error("[classboard] class list failed", error);
-      onChange({ status: "error", data: null, error: "Could not load classes." });
-    },
-  );
-}
-
-/**
- * One class's active assignments, live.
- *
- * `onSnapshot` rather than a one-shot read, so a CR posting something appears
- * without a refresh (§30).
- *
- * A `permission-denied` here is not necessarily a bug: an unauthenticated read of
- * a class that is no longer active is refused, and the message is accurate either
- * way. The two cases are not worth separating — from a student's side they are
- * the same event, the class they were sent to is not available.
- */
+/** One class's active assignments, kept fresh. */
 export function subscribeToClassAssignments(
   classId: string,
   onChange: (state: Loadable<Assignment[]>) => void,
 ): () => void {
-  const q = query(
-    collection(db, `classes/${classId}/assignments`),
-    where("active", "==", true),
-  );
+  let latest = 0;
+  let closed = false;
 
-  return onSnapshot(
-    q,
-    (snapshot: QuerySnapshot<DocumentData>) => {
-      const assignments = snapshot.docs.map((each) =>
-        toAssignment(classId, each.id, each.data()),
-      );
+  async function load() {
+    const ticket = ++latest;
+    const { data, error } = await supabase
+      .from("assignments")
+      .select(ASSIGNMENT_PUBLIC_COLUMNS)
+      .eq("class_id", classId)
+      .eq("active", true);
 
-      onChange({ status: "ready", data: assignments, error: null });
-    },
-    (error) => {
+    if (closed || ticket !== latest) return;
+
+    if (error) {
       console.error("[classboard] assignment feed failed", error);
       onChange({
         status: "error",
         data: null,
-        error: "This class is no longer active.",
+        error: "Could not load assignments. Check your connection and try again.",
       });
-    },
-  );
+      return;
+    }
+
+    onChange({ status: "ready", data: (data ?? []).map(toAssignment), error: null });
+  }
+
+  const stop = watchClass(classId, load);
+  return () => {
+    closed = true;
+    stop();
+  };
 }
 
 /**
  * The class behind a shared link, or null if it cannot be shown.
  *
- * A miss here is a permission denial, not an empty result: a deactivated class
- * refuses the read. So null covers "deactivated", "never existed" and "bad link"
- * alike, and the caller shows one plain message for all of them.
+ * RLS hides an inactive class from anonymous readers, so "deactivated", "never
+ * existed" and "bad link" all come back as no row, and the caller shows one
+ * message for all of them.
  */
 export async function fetchClass(classId: string): Promise<ClassInfo | null> {
-  try {
-    const snapshot = await getDoc(doc(db, `classes/${classId}`));
-    if (!snapshot.exists() || snapshot.data().active !== true) return null;
-    return toClassInfo(classId, snapshot.data());
-  } catch {
-    return null;
-  }
+  const { data, error } = await supabase
+    .from("classes")
+    .select(CLASS_COLUMNS)
+    .eq("id", classId)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return toClassInfo(data);
 }

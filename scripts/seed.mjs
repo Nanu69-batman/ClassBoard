@@ -1,90 +1,37 @@
 /**
- * Seeds a local Firebase project with classes, subjects, assignments and the
+ * Seeds a Supabase project with classes, subjects, assignments and the
  * accounts needed to try the CR and superadmin dashboards.
  *
- * Why this exists: creating a Firebase Auth user needs the Admin SDK, and the
- * Admin SDK is server-side. It works fine from a laptop against the free Spark
- * plan, so this is the "secure server" for setup purposes — it just never ships
- * to the browser.
+ * Uses the service_role key from .env.local (see scripts/lib/admin.mjs). It
+ * bypasses row-level security, so this only ever runs from your own machine.
  *
- * It refuses to run against the live project unless SEED_ALLOW_PRODUCTION=1 is
- * set, and it generates a random password for every account rather than shipping
- * a default one (§34).
+ * Every account gets a freshly generated password, printed once, rather than a
+ * default one (§34).
  *
- * Usage:
- *   1. Firebase console -> Project settings -> Service accounts ->
- *      "Generate new private key". Save it somewhere outside the repo.
- *   2. Set FIREBASE_SERVICE_ACCOUNT to its path, or drop it at ./service-account.json
- *   3. npm run seed            (add --dry-run to preview without writing)
+ *   npm run seed:dry     preview, writes nothing
+ *   npm run seed         apply (asks for SEED_ALLOW_PRODUCTION=1)
  *
- * Re-running is safe: accounts are reused, documents are merged.
+ * Re-running is safe: classes, subjects and profiles are upserted, existing
+ * accounts keep their password, and a class that already has assignments gets
+ * no more.
  */
 
-import { existsSync, readFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
-import { cert, initializeApp } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
-const PROJECT_ID = "classboard-de77d";
+import { adminClient, fail, findUserByEmail } from "./lib/admin.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
-const ALLOW_PRODUCTION = process.env.SEED_ALLOW_PRODUCTION === "1";
+const ALLOW = process.env.SEED_ALLOW_PRODUCTION === "1";
 
-const SERVICE_ACCOUNT_CANDIDATES = [
-  process.env.FIREBASE_SERVICE_ACCOUNT,
-  "service-account.json",
-  "scripts/service-account.json",
-].filter(Boolean);
-
-function findServiceAccount() {
-  for (const candidate of SERVICE_ACCOUNT_CANDIDATES) {
-    if (existsSync(candidate)) return candidate;
-  }
-  return null;
-}
-
-function fail(message) {
-  console.error(`\n  ${message}\n`);
-  process.exit(1);
-}
-
-const path = findServiceAccount();
-if (!path) {
-  fail(
-    [
-      "No service account found.",
-      "",
-      "Download one: Firebase console -> Project settings -> Service accounts ->",
-      '"Generate new private key". Then either',
-      "  - set FIREBASE_SERVICE_ACCOUNT to the file's path, or",
-      "  - copy the file to ./service-account.json (it is gitignored).",
-    ].join("\n  "),
-  );
-}
-
-if (PROJECT_ID === process.env.GCLOUD_PROJECT) {
-  fail("Refusing to seed the live project. Set SEED_ALLOW_PRODUCTION=1 if you mean it.");
-}
-
-if (!ALLOW_PRODUCTION && !DRY_RUN) {
+if (!ALLOW && !DRY_RUN) {
   console.log(
-    "\n  This writes to the real project " +
-      PROJECT_ID +
-      ".\n  Re-run with --dry-run to preview, or SEED_ALLOW_PRODUCTION=1 to apply.\n",
+    "\n  This writes to your Supabase project.\n" +
+      "  Re-run with --dry-run to preview, or set SEED_ALLOW_PRODUCTION=1 to apply.\n",
   );
   process.exit(1);
 }
 
-const app = initializeApp({
-  credential: cert(JSON.parse(readFileSync(path, "utf8"))),
-  projectId: PROJECT_ID,
-});
-
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-const now = FieldValue.serverTimestamp();
+const supabase = adminClient();
 
 /** ISO date, N days from today, so the sample always covers every state. */
 function isoDateFromToday(offsetDays) {
@@ -170,99 +117,120 @@ const ACCOUNTS = [
   // Deliberately no CR for it-2026-b, so the admin can show a class needing one.
 ];
 
-async function upsertAccount(account, generated) {
-  let record;
-  try {
-    record = await auth.getUserByEmail(account.email);
-  } catch (error) {
-    if (error?.code !== "auth/user-not-found") throw error;
-    if (DRY_RUN) return { ...account, uid: "(new)", password: generated, created: true };
-    record = await auth.createUser({
-      email: account.email,
-      password: generated,
-      emailVerified: true,
-      displayName: account.name,
-    });
+function check(result, what) {
+  if (result.error) fail(`${what}: ${result.error.message}`);
+  return result.data;
+}
+
+async function upsertAccount(account, password) {
+  const existing = await findUserByEmail(supabase, account.email);
+  if (DRY_RUN) {
+    return { ...account, uid: existing?.id ?? "(new)", password: existing ? "(existing)" : password, created: !existing };
   }
 
-  if (DRY_RUN) return { ...account, uid: record.uid, password: "(existing)", created: false };
+  let user = existing;
+  if (!user) {
+    user = check(
+      await supabase.auth.admin.createUser({
+        email: account.email,
+        password,
+        email_confirm: true,
+        user_metadata: { full_name: account.name },
+      }),
+      `create ${account.email}`,
+    ).user;
+  }
 
-  await db.doc(`users/${record.uid}`).set(
-    {
+  check(
+    await supabase.from("profiles").upsert({
+      id: user.id,
       email: account.email,
-      displayName: account.name,
+      display_name: account.name,
       role: account.role,
-      classId: account.classId,
+      class_id: account.classId,
       active: true,
-      createdAt: now,
-    },
-    { merge: true },
+    }),
+    `profile for ${account.email}`,
   );
 
-  return { ...account, uid: record.uid, password: generated, created: true };
+  return { ...account, uid: user.id, password: existing ? "(existing)" : password, created: !existing };
 }
 
 async function main() {
-  const mode = DRY_RUN ? "DRY RUN — nothing written" : `WRITING to ${PROJECT_ID}`;
-
-  console.log(`\n  ClassBoard seed — ${mode}`);
-  console.log(`  service account: ${path}\n`);
-
-  const generated = {};
-  const results = [];
-  for (const account of ACCOUNTS) {
-    const password = makePassword();
-    generated[account.key] = password;
-    results.push(await upsertAccount(account, password));
-  }
-
-  for (const each of CLASSES) {
-    if (!DRY_RUN) {
-      await db.doc(`classes/${each.id}`).set({ ...each, createdAt: now }, { merge: true });
-    }
-  }
-
-  for (const [classId, subjects] of Object.entries(SUBJECTS)) {
-    for (const [id, name, shortName] of subjects) {
-      if (!DRY_RUN) {
-        await db.doc(`classes/${classId}/subjects/${id}`).set({ name, shortName, active: true }, { merge: true });
-      }
-    }
-  }
-
-  for (const [classId, subjectId, title, description, offset, priority] of ASSIGNMENTS) {
-    const subjectName = SUBJECTS[classId].find((s) => s[0] === subjectId)[1];
-    const crEmail = ACCOUNTS.find((a) => a.classId === classId)?.email;
-    const crName = ACCOUNTS.find((a) => a.classId === classId)?.name ?? "Unassigned";
-    if (!DRY_RUN) {
-      await db.collection(`classes/${classId}/assignments`).add({
-        subjectId,
-        subjectName,
-        title,
-        description,
-        dueDate: isoDateFromToday(offset),
-        priority,
-        attachmentUrl: null,
-        attachmentName: null,
-        contactEmail: null,
-        createdBy: crEmail ?? "unassigned",
-        postedByName: crName,
-        createdAt: now,
-        updatedAt: now,
-        active: true,
-      });
-    }
-  }
-
-  console.log(`  ${CLASSES.length} classes, ${Object.values(SUBJECTS).flat().length} subjects, ${ASSIGNMENTS.length} assignments\n`);
+  console.log(`\n  ClassBoard seed — ${DRY_RUN ? "dry run" : "applying"}\n`);
 
   if (DRY_RUN) {
+    console.log(`  ${CLASSES.length} classes, ${Object.values(SUBJECTS).flat().length} subjects, ${ASSIGNMENTS.length} assignments`);
     console.log("  Accounts that would exist:");
     for (const account of ACCOUNTS) console.log(`    ${account.email}  (${account.role})`);
     console.log("\n  Nothing was written.\n");
     return;
   }
 
+  // Classes
+  check(
+    await supabase.from("classes").upsert(
+      CLASSES.map(({ displayName, ...rest }) => ({ ...rest, display_name: displayName })),
+    ),
+    "classes",
+  );
+
+  // Subjects, keyed by (class, slug) so assignments can find them
+  const subjectIds = {};
+  for (const [classId, list] of Object.entries(SUBJECTS)) {
+    const rows = check(
+      await supabase
+        .from("subjects")
+        .upsert(
+          list.map(([, name, shortName]) => ({ class_id: classId, name, short_name: shortName, active: true })),
+          { onConflict: "class_id,name" },
+        )
+        .select("id, name"),
+      `subjects for ${classId}`,
+    );
+    for (const [slug, name] of list) {
+      subjectIds[`${classId}/${slug}`] = rows.find((row) => row.name === name)?.id;
+    }
+  }
+
+  // Accounts
+  const results = [];
+  for (const account of ACCOUNTS) {
+    results.push(await upsertAccount(account, makePassword()));
+  }
+  const crByClass = Object.fromEntries(
+    results.filter((each) => each.role === "cr").map((each) => [each.classId, each]),
+  );
+
+  // Assignments — only for classes that have none yet, so a re-run never doubles them
+  let inserted = 0;
+  for (const cls of CLASSES) {
+    const { count } = await supabase
+      .from("assignments")
+      .select("id", { count: "exact", head: true })
+      .eq("class_id", cls.id);
+    if (count) continue;
+
+    const rows = ASSIGNMENTS.filter(([classId]) => classId === cls.id).map(
+      ([classId, slug, title, description, offset, priority]) => ({
+        class_id: classId,
+        subject_id: subjectIds[`${classId}/${slug}`],
+        title,
+        description,
+        due_date: isoDateFromToday(offset),
+        priority,
+        created_by: crByClass[classId]?.uid ?? null,
+        posted_by_name: crByClass[classId]?.name ?? "Class representative",
+        active: true,
+      }),
+    );
+    if (rows.length === 0) continue;
+
+    check(await supabase.from("assignments").insert(rows), `assignments for ${cls.id}`);
+    inserted += rows.length;
+  }
+
+  console.log(`  ${CLASSES.length} classes, ${Object.values(SUBJECTS).flat().length} subjects, ${inserted} new assignments\n`);
   console.log("  Sign-in details:\n");
   for (const result of results) {
     const label = result.role === "superadmin" ? "superadmin" : `CR for ${result.classId}`;
@@ -272,14 +240,7 @@ async function main() {
     console.log(`      ${result.created ? "created" : "already existed (password unchanged, reset it if needed)"}`);
     console.log("");
   }
-
   console.log("  These passwords are shown once and are not stored anywhere.\n");
 }
 
-main().then(
-  () => process.exit(0),
-  (error) => {
-    console.error("\n  Seed failed:", error?.message ?? error, "\n");
-    process.exit(1);
-  },
-);
+await main();

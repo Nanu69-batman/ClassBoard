@@ -23,7 +23,7 @@ const COPY: Record<Role, { title: string; hint: string }> = {
  * grant a role. A student who types /cr gets this page and no way to register.
  */
 export function LoginPage({ role }: { role: Role }) {
-  const { signInWithGoogle, signInWithEmail } = useAuth();
+  const { status, profile, user, signInWithGoogle, signInWithEmail, signOut } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,6 +48,43 @@ export function LoginPage({ role }: { role: Role }) {
 
   const copy = COPY[role];
   const isBusy = pending !== null;
+
+  // Signed in, but not as this role. RedirectIfAlreadySignedIn handles the
+  // matching case; without this branch the button would sit on "Signing in…"
+  // forever with no explanation.
+  if (status === "signed-in" && !(profile?.active && profile.role === role)) {
+    const message = !profile
+      ? "This account is not linked to a class. If you were expecting access, ask your superadmin for an invite link."
+      : !profile.active
+        ? "This account is no longer active. Ask your superadmin if you think that is wrong."
+        : role === "cr"
+          ? "This is a superadmin account, not a class representative account."
+          : "This account does not have superadmin access.";
+
+    return (
+      <div className="auth-page">
+        <div className="auth-card auth-card--notice">
+          <h1 className="auth-card__title">No access here</h1>
+          <p className="auth-card__hint">
+            Signed in as <strong>{user?.email ?? "this account"}</strong>. {message}
+          </p>
+          <button
+            type="button"
+            className="button button--primary button--block"
+            onClick={() => {
+              setPending(null);
+              void signOut();
+            }}
+          >
+            Sign in with a different account
+          </button>
+          <a className="auth-card__back" href="/">
+            Back to the dashboard
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-page">

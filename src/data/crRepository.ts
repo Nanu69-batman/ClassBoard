@@ -1,293 +1,210 @@
 /**
- * Reading and writing a class as its CR.
+ * Reading and writing a class as its CR (or as a superadmin).
  *
- * The student side is read-only and lives in `feed.ts`. This is the other half:
- * the only place in the app that writes to Firestore.
+ * The student side is read-only and lives in `feed.ts`. This is the other half.
  *
- * ## Why the CR's own queries carry no `active` filter
+ * ## Why the CR's reads carry no `active` filter
  *
- * The student feed must query `where("active", "==", true)`, because the rules'
- * public branch varies per document and Firestore can only authorise a query it
- * can prove. A CR's class queries carry no filter at all, and that is what makes
- * archived work visible to them.
+ * Row-level security returns every row of the caller's own class to an active
+ * CR of an active class, archived ones included, so the dashboard can show and
+ * restore them. A student asking the same question gets active rows only.
  *
- * It works because `isMyClass(classId)` resolves to a single `get()` on the
- * caller's *own* profile — a value that is constant for the whole query, unlike
- * `active`. Firestore evaluates that branch for the result set as a whole, so the
- * query is authorised and every document in the class comes back, archived
- * included. The subcollection path has already fixed the class, so the check
- * cannot vary per document either.
+ * ## What the client does not get to choose
  *
- * ## createdBy is the uid, and the rules hold it fixed
- *
- * `createdBy` carries the Firebase uid, not an email address, and the rules
- * compare it against `request.auth.uid` on create. It is the anchor for the
- * attribution a student sees via `postedByName`. Because it is what makes
- * `postedByName` trustworthy, the rules forbid changing it on update.
+ * `created_by`, `posted_by_name`, `created_at` and `subject_name` are stamped by
+ * a database trigger from the caller's own profile and the subject row, and are
+ * pinned on update. Nothing below sends them; sending them would change nothing.
  *
  * ## Updates touch only the fields the form owns
  *
- * §17 is explicit: do not silently overwrite unrelated fields. Every write below
- * uses `updateDoc`, never `setDoc`, so a field the form does not render —
- * `contactEmail`, `attachmentUrl` — survives an edit untouched. `setDoc` would
- * replace the whole document and quietly drop anything it did not know about.
+ * §17: do not silently overwrite unrelated fields. `update()` only sends the
+ * listed columns, so `contact_email` and anything else survive an edit.
  */
 
+import { supabase } from "../lib/supabase";
+import { removeAttachment, uploadAttachment } from "./attachments";
+import { watchClass } from "./feed";
 import {
-  addDoc,
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  serverTimestamp,
-  updateDoc,
-  type DocumentData,
-} from "firebase/firestore";
-
-import { db } from "../lib/firebase";
-import type {
-  Assignment,
-  ClassInfo,
-  CrAssignment,
-  Loadable,
-  Priority,
-  SubjectInfo,
-} from "./types";
-
-const PRIORITIES: Priority[] = ["none", "low", "normal", "high"];
-
-function toPriority(value: unknown): Priority {
-  return PRIORITIES.includes(value as Priority) ? (value as Priority) : "none";
-}
-
-function toText(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
-
-function toDueDate(value: unknown): string {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
-}
-
-function toDueNote(value: unknown, dueDate: string): string | null {
-  if (dueDate) return null;
-  if (typeof value !== "string") return null;
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed.slice(0, 120) : null;
-}
-
-function toSubject(classId: string, id: string, data: DocumentData): SubjectInfo {
-  return {
-    id,
-    classId,
-    name: toText(data.name, id),
-    shortName: toText(data.shortName, id),
-    active: data.active === true,
-  };
-}
-
-function toCrAssignment(classId: string, id: string, data: DocumentData): CrAssignment {
-  const dueDate = toDueDate(data.dueDate);
-
-  return {
-    id,
-    classId,
-    // The id is what the edit form preselects; the name is what a card shows.
-    // A document missing subjectId falls back to the name, so the two can never
-    // disagree about which subject this is.
-    subjectId: toText(data.subjectId, toText(data.subjectName)),
-    subject: toText(data.subjectName, "General"),
-    title: toText(data.title, "Untitled assignment"),
-    description: toText(data.description),
-    dueDate,
-    dueNote: toDueNote(data.dueNote, dueDate),
-    priority: toPriority(data.priority),
-    attachment: typeof data.attachmentUrl === "string" ? data.attachmentUrl : null,
-    postedBy: typeof data.postedByName === "string" ? data.postedByName : null,
-    active: data.active === true,
-    contactEmail: typeof data.contactEmail === "string" ? data.contactEmail : null,
-  };
-}
+  ASSIGNMENT_CR_COLUMNS,
+  CLASS_COLUMNS,
+  SUBJECT_COLUMNS,
+  toClassInfo,
+  toCrAssignment,
+  toSubject,
+} from "./rows";
+import type { ClassInfo, CrAssignment, Loadable, Priority, SubjectInfo } from "./types";
 
 /**
- * Every assignment in the class, archived ones included.
+ * Every assignment and subject in the class, kept fresh.
  *
- * Unfiltered on purpose — see the note at the top of this file. A CR whose
- * account has been deactivated is refused here, which is the revocation working.
+ * One subscription for both, because both tables ping the same `class:<id>`
+ * topic and a client should hold one channel per topic.
  */
-export function subscribeToClassAssignmentsForCr(
+export function subscribeToClassForCr(
   classId: string,
-  onChange: (state: Loadable<CrAssignment[]>) => void,
+  onAssignments: (state: Loadable<CrAssignment[]>) => void,
+  onSubjects: (state: Loadable<SubjectInfo[]>) => void,
 ): () => void {
-  return onSnapshot(
-    collection(db, `classes/${classId}/assignments`),
-    (snapshot) => {
-      const assignments = snapshot.docs.map((each) =>
-        toCrAssignment(classId, each.id, each.data()),
-      );
-      onChange({ status: "ready", data: assignments, error: null });
-    },
-    (error) => {
-      console.error("[classboard] CR assignment list failed", error);
-      onChange({ status: "error", data: null, error: "Could not load your assignments." });
-    },
-  );
-}
+  let latest = 0;
+  let closed = false;
 
-/**
- * The class's own subjects, for the form's subject dropdown.
- *
- * Unfiltered, so a CR can still file an assignment under a subject that has been
- * deactivated but not deleted. Ordered by name, because that is how a person
- * scans a list of subjects.
- */
-export function subscribeToClassSubjectsForCr(
-  classId: string,
-  onChange: (state: Loadable<SubjectInfo[]>) => void,
-): () => void {
-  return onSnapshot(
-    collection(db, `classes/${classId}/subjects`),
-    (snapshot) => {
-      const subjects = snapshot.docs
-        .map((each) => toSubject(classId, each.id, each.data()))
-        .sort((a, b) => a.name.localeCompare(b.name));
+  async function load() {
+    const ticket = ++latest;
+    const [assignments, subjects] = await Promise.all([
+      supabase.from("assignments").select(ASSIGNMENT_CR_COLUMNS).eq("class_id", classId),
+      supabase.from("subjects").select(SUBJECT_COLUMNS).eq("class_id", classId).order("name"),
+    ]);
 
-      onChange({ status: "ready", data: subjects, error: null });
-    },
-    (error) => {
-      console.error("[classboard] subject list failed", error);
-      onChange({ status: "error", data: null, error: "Could not load your subjects." });
-    },
-  );
-}
+    if (closed || ticket !== latest) return;
 
-/** The class document as a CR may read it — active or not, since they may own it. */
-export async function fetchClassForCr(classId: string): Promise<ClassInfo | null> {
-  try {
-    const snapshot = await getDoc(doc(db, `classes/${classId}`));
-    if (!snapshot.exists()) return null;
+    if (assignments.error) {
+      console.error("[classboard] CR assignment list failed", assignments.error);
+      onAssignments({ status: "error", data: null, error: "Could not load your assignments." });
+    } else {
+      onAssignments({ status: "ready", data: (assignments.data ?? []).map(toCrAssignment), error: null });
+    }
 
-    const data = snapshot.data();
-    return {
-      id: classId,
-      name: toText(data.name),
-      batch: toText(data.batch),
-      section: toText(data.section),
-      displayName: toText(data.displayName, classId),
-      active: data.active === true,
-    };
-  } catch {
-    return null;
+    if (subjects.error) {
+      console.error("[classboard] subject list failed", subjects.error);
+      onSubjects({ status: "error", data: null, error: "Could not load your subjects." });
+    } else {
+      onSubjects({ status: "ready", data: (subjects.data ?? []).map(toSubject), error: null });
+    }
   }
+
+  const stop = watchClass(classId, load);
+  return () => {
+    closed = true;
+    stop();
+  };
 }
 
-/** Everything the form collects. Mirrors §16: subject, title and due date required. */
+/** The class row as a CR may read it — active or not, since they own it. */
+export async function fetchClassForCr(classId: string): Promise<ClassInfo | null> {
+  const { data, error } = await supabase
+    .from("classes")
+    .select(CLASS_COLUMNS)
+    .eq("id", classId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return toClassInfo(data);
+}
+
+/** Everything the form collects. §16: subject, title and a due date (or note). */
 export type AssignmentDraft = {
   subjectId: string;
-  /** Denormalised from the subject document, so a student's card needs no extra read. */
-  subjectName: string;
   title: string;
   description: string;
-  /**
-   * Empty when the CR chose a standing note instead of a date. A CR can genuinely
-   * post reading that is not due on any particular day, and forcing a fake date
-   * onto it would make the student dashboard claim it is overdue.
-   */
+  /** Empty when the CR chose a standing note instead of a date. */
   dueDate: string;
-  /**
-   * Shown in place of the date. Empty when there is a real date, so a document
-   * never carries both. Stored as an empty string rather than null because
-   * Firestore documents in this app use empty strings for "no value" consistently
-   * — `attachmentUrl`, `contactEmail` — and mixing the two would be worse than
-   * the redundancy. The mappers turn it back into null for the UI.
-   */
+  /** Shown in place of the date. Empty when there is a real date. */
   dueNote: string;
   priority: Priority;
 };
 
-/** Who is posting, and what to call them in public. */
-export type Author = {
-  uid: string;
-  displayName: string;
-};
+/** What should happen to the assignment's file on save. */
+export type AttachmentChange =
+  | { kind: "keep" }
+  | { kind: "remove" }
+  | { kind: "replace"; file: File };
+
+/** The due columns: exactly one of the two is ever non-null (a table CHECK too). */
+function dueColumns(draft: AssignmentDraft) {
+  return draft.dueDate
+    ? { due_date: draft.dueDate, due_note: null }
+    : { due_date: null, due_note: draft.dueNote || "No deadline for now" };
+}
+
+function draftColumns(draft: AssignmentDraft) {
+  return {
+    subject_id: draft.subjectId || null,
+    title: draft.title,
+    description: draft.description,
+    priority: draft.priority,
+    ...dueColumns(draft),
+  };
+}
 
 /**
- * Posts a new assignment.
+ * Posts a new assignment, uploading its file first when there is one.
  *
- * Every field in the document is one the rules' `validAssignment()` allows and
- * nothing else — `keys().hasOnly` rejects the whole write if a single unexpected
- * key appears, which is what stops an account email being denormalised into a
- * student-readable document by accident.
+ * The id is minted here so the file can be stored under it before the row
+ * exists; students never see a row pointing at a file that is not there yet. If
+ * the insert fails, the uploaded file is removed again.
  */
 export async function createAssignment(
   classId: string,
   draft: AssignmentDraft,
-  author: Author,
+  attachment: AttachmentChange,
 ): Promise<string> {
-  const created = await addDoc(collection(db, `classes/${classId}/assignments`), {
-    subjectId: draft.subjectId,
-    subjectName: draft.subjectName,
-    title: draft.title,
-    description: draft.description,
-    dueDate: draft.dueDate,
-    dueNote: draft.dueNote,
-    priority: draft.priority,
-    // M7 replaces these two with a real Storage upload. Nulls keep the document
-    // shape identical to the seeded one, so nothing downstream has to branch.
-    attachmentUrl: null,
-    attachmentName: null,
-    contactEmail: null,
-    createdBy: author.uid,
-    postedByName: author.displayName,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  const id = crypto.randomUUID();
+
+  let path: string | null = null;
+  let name: string | null = null;
+  if (attachment.kind === "replace") {
+    path = await uploadAttachment(classId, id, attachment.file);
+    name = attachment.file.name.slice(0, 200);
+  }
+
+  const { error } = await supabase.from("assignments").insert({
+    id,
+    class_id: classId,
+    ...draftColumns(draft),
+    attachment_path: path,
+    attachment_name: name,
     active: true,
   });
 
-  return created.id;
+  if (error) {
+    await removeAttachment(path);
+    throw error;
+  }
+
+  return id;
 }
 
 /**
- * Applies an edit to the fields the form owns.
+ * Applies an edit to the fields the form owns, plus the file change.
  *
- * `updateDoc` rather than `setDoc`, so `createdBy`, `createdAt`, `contactEmail`
- * and any attachment survive. §17 asks for exactly this.
+ * The old file is removed only after the row points away from it, so a failed
+ * save never leaves an assignment linking to a deleted file.
  */
 export async function updateAssignment(
-  classId: string,
-  assignmentId: string,
+  assignment: CrAssignment,
   draft: AssignmentDraft,
+  attachment: AttachmentChange,
 ): Promise<void> {
-  await updateDoc(doc(db, `classes/${classId}/assignments/${assignmentId}`), {
-    subjectId: draft.subjectId,
-    subjectName: draft.subjectName,
-    title: draft.title,
-    description: draft.description,
-    dueDate: draft.dueDate,
-    dueNote: draft.dueNote,
-    priority: draft.priority,
-    updatedAt: serverTimestamp(),
-  });
+  let fileColumns: { attachment_path: string | null; attachment_name: string | null } | null = null;
+  let uploaded: string | null = null;
+
+  if (attachment.kind === "replace") {
+    uploaded = await uploadAttachment(assignment.classId, assignment.id, attachment.file);
+    fileColumns = { attachment_path: uploaded, attachment_name: attachment.file.name.slice(0, 200) };
+  } else if (attachment.kind === "remove") {
+    fileColumns = { attachment_path: null, attachment_name: null };
+  }
+
+  const { error } = await supabase
+    .from("assignments")
+    .update({ ...draftColumns(draft), ...(fileColumns ?? {}) })
+    .eq("id", assignment.id);
+
+  if (error) {
+    await removeAttachment(uploaded);
+    throw error;
+  }
+
+  if (fileColumns && assignment.attachmentPath) {
+    await removeAttachment(assignment.attachmentPath);
+  }
 }
 
 /**
- * Soft delete, per §18.
- *
- * `active: false` rather than a removal, so an accidental click is recoverable
- * and a student's marked-complete state is not orphaned onto a document that no
- * longer exists. Students' dashboards drop it via their own `active == true`
- * filter; the CR keeps seeing it here, because this query is unfiltered.
+ * Soft delete, per §18. `active: false` rather than a removal, so an accidental
+ * click is recoverable. The file is kept, so restoring brings it back too.
  */
-export async function setAssignmentActive(
-  classId: string,
-  assignmentId: string,
-  active: boolean,
-): Promise<void> {
-  await updateDoc(doc(db, `classes/${classId}/assignments/${assignmentId}`), {
-    active,
-    updatedAt: serverTimestamp(),
-  });
+export async function setAssignmentActive(assignmentId: string, active: boolean): Promise<void> {
+  const { error } = await supabase.from("assignments").update({ active }).eq("id", assignmentId);
+  if (error) throw error;
 }
-
-/** Re-exported so the form does not need to import from two modules. */
-export type { Assignment, CrAssignment };

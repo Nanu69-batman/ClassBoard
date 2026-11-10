@@ -1,9 +1,9 @@
 /**
  * Sample classes and subjects.
  *
- * These mirror the Firestore shape from M2 and are what the seed script in M9
+ * These mirror the database shape and are what the seed script in M9
  * will write. The privileged dashboards read them for now so the screens can be
- * reviewed before the Firestore wiring lands in M6 and M8.
+ * reviewed before the superadmin wiring lands in M8.
  */
 
 export type ClassInfo = {

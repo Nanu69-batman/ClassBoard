@@ -51,7 +51,7 @@ export function useStudentClass(): ClassSelection {
     if (!classId) {
       // The route matched but the segment is not a usable document id. Settle
       // immediately rather than leaving the caller on "loading" forever, and
-      // never issue a Firestore read for it.
+      // never issue a database read for it.
       setFound(null);
       setIsResolved(true);
       return;
@@ -102,8 +102,8 @@ export function useStudentClass(): ClassSelection {
  * A route parameter, validated before it is used to build a document path.
  *
  * react-router already URL-decodes, so the value here has been through a decoder
- * once. Firestore document ids are 1-1500 characters, cannot contain `/`, and
- * cannot be `.` or `..`. Anything else is refused outright, so a hostile
+ * once. Class ids are lowercase slugs; anything with a `/`, a `.` or a control
+ * character cannot be one. Anything else is refused outright, so a hostile
  * `/class/…` cannot reach a path at all.
  */
 function sanitiseClassId(raw: string | undefined): string | null {

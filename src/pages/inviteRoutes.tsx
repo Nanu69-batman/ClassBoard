@@ -10,8 +10,8 @@ import { InvitePage } from "./InvitePage";
  * page does nothing without one, and the rules refuse the claim without a valid
  * one.
  *
- * Lazy for the same reason as the other privileged routes — it pulls in the auth
- * SDK, and a student who opens the app with no invite has no use for that.
+ * Lazy for the same reason as the other privileged routes — a student who opens
+ * the app with no invite has no use for it.
  */
 export function InviteRoute() {
   return (

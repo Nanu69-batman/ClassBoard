@@ -7,21 +7,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut as firebaseSignOut,
-  type User,
-} from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import type { User } from "@supabase/supabase-js";
 
-import { db } from "../lib/firebase";
-import { auth } from "../lib/firebasePrivileged";
+import { supabase } from "../lib/supabase";
 
-/** The `users/{uid}` document. The only authority on what a person may do. */
+/** The `profiles` row. The only authority on what a person may do. */
 export type UserProfile = {
   role: "cr" | "superadmin";
   classId?: string;
@@ -32,11 +22,14 @@ export type UserProfile = {
 
 export type AuthStatus = "loading" | "signed-out" | "signed-in";
 
+/** What happened after an email sign-up. */
+export type SignUpResult = { needsConfirmation: boolean };
+
 type AuthValue = {
   status: AuthStatus;
-  /** The Firebase identity, or null. */
+  /** The Supabase identity, or null. */
   user: User | null;
-  /** The `users/{uid}` document, or null when there is none. */
+  /** The `profiles` row, or null when there is none. */
   profile: UserProfile | null;
   /**
    * True when signed in but holding no role at all — a self-registered account,
@@ -46,91 +39,178 @@ type AuthValue = {
   hasNoRole: boolean;
   isCr: boolean;
   isSuperadmin: boolean;
+  /** Redirects to Google and back to the current page. */
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  createAccountWithEmail: (email: string, password: string) => Promise<void>;
+  createAccountWithEmail: (email: string, password: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
+  /** Re-reads the profile, e.g. right after claiming an invite. */
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
 
+type ProfileState = { userId: string; profile: UserProfile | null };
+
+function toProfile(row: Record<string, unknown>): UserProfile | null {
+  if (row.role !== "cr" && row.role !== "superadmin") return null;
+  return {
+    role: row.role,
+    classId: typeof row.class_id === "string" ? row.class_id : undefined,
+    active: row.active === true,
+    displayName: typeof row.display_name === "string" ? row.display_name : undefined,
+    email: typeof row.email === "string" ? row.email : undefined,
+  };
+}
+
+async function fetchProfile(userId: string): Promise<UserProfile | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role, class_id, active, display_name, email")
+    .eq("id", userId)
+    .maybeSingle();
+
+  // A read failure must not invent a role. Null makes every guard deny, which is
+  // the safe direction.
+  if (error || !data) return null;
+  return toProfile(data);
+}
+
+/** Where to come back to after a redirect: this exact page, query included. */
+function currentUrl(): string {
+  return window.location.href;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [profileChecked, setProfileChecked] = useState(false);
   /**
-   * True once onAuthStateChanged has fired at least once.
-   *
-   * This is load-bearing. On a fresh mount `user` is null until the persisted
-   * session is restored, so reporting "signed-out" immediately makes every guard
-   * bounce a signed-in person to the login page — and because each route mounts
-   * its own provider, that becomes a redirect loop between /cr and /cr/login.
+   * False until the persisted session has been restored. Reporting "signed-out"
+   * before then would bounce a signed-in person to the login page, and because
+   * each route mounts its own provider that becomes a redirect loop.
    */
   const [isInitialized, setIsInitialized] = useState(false);
+  /**
+   * The profile, tagged with whose it is. A profile is only trusted while its
+   * userId matches the current user, so a sign-in or account switch can never
+   * briefly show the previous person's role — or "no role" before the new one
+   * has loaded.
+   */
+  const [profileState, setProfileState] = useState<ProfileState | null>(null);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, async (nextUser) => {
-      setUser(nextUser);
+    let cancelled = false;
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      setUser(data.session?.user ?? null);
       setIsInitialized(true);
-
-      if (!nextUser) {
-        setProfile(null);
-        setProfileChecked(true);
-        return;
-      }
-
-      try {
-        const snapshot = await getDoc(doc(db, "users", nextUser.uid));
-        setProfile(snapshot.exists() ? (snapshot.data() as UserProfile) : null);
-      } catch {
-        // A read failure must not invent a role. Leave the profile null; the
-        // guards then deny, which is the safe direction.
-        setProfile(null);
-      } finally {
-        setProfileChecked(true);
-      }
     });
+
+    // Supabase warns against awaiting its own calls inside this callback, so it
+    // only records the user; the profile loads in the effect below.
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setIsInitialized(true);
+    });
+
+    return () => {
+      cancelled = true;
+      data.subscription.unsubscribe();
+    };
   }, []);
 
+  const userId = user?.id ?? null;
+
+  const loadProfile = useCallback(async (id: string) => {
+    // Tagged with the id it was fetched for; the value below ignores it if the
+    // signed-in user has changed in the meantime.
+    const profile = await fetchProfile(id);
+    setProfileState({ userId: id, profile });
+  }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setProfileState(null);
+      return;
+    }
+
+    let cancelled = false;
+    void fetchProfile(userId).then((profile) => {
+      if (!cancelled) setProfileState({ userId, profile });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
   const signInWithGoogle = useCallback(async () => {
-    await signInWithPopup(auth, new GoogleAuthProvider());
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: currentUrl() },
+    });
+    if (error) throw error;
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
   }, []);
 
   const createAccountWithEmail = useCallback(async (email: string, password: string) => {
-    await createUserWithEmailAndPassword(auth, email, password);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      // The confirmation email links back to this page — for the invite page,
+      // that keeps the token in the URL.
+      options: { emailRedirectTo: currentUrl() },
+    });
+    if (error) throw error;
+    return { needsConfirmation: data.session === null };
   }, []);
 
   const signOut = useCallback(async () => {
-    await firebaseSignOut(auth);
+    await supabase.auth.signOut();
   }, []);
+
+  const refreshProfile = useCallback(async () => {
+    if (userId) await loadProfile(userId);
+  }, [userId, loadProfile]);
 
   const value = useMemo<AuthValue>(() => {
     const signedIn = user !== null;
-    const role = profile?.role;
+    const profileLoaded = signedIn && profileState?.userId === user.id;
+    const profile = profileLoaded ? profileState.profile : null;
 
     return {
       status: !isInitialized
         ? "loading"
         : !signedIn
           ? "signed-out"
-          : profileChecked
+          : profileLoaded
             ? "signed-in"
             : "loading",
       user,
       profile,
-      hasNoRole: isInitialized && signedIn && profileChecked && profile === null,
-      isCr: role === "cr" && profile?.active === true,
-      isSuperadmin: role === "superadmin" && profile?.active === true,
+      hasNoRole: profileLoaded && profile === null,
+      isCr: profile?.role === "cr" && profile.active,
+      isSuperadmin: profile?.role === "superadmin" && profile.active,
       signInWithGoogle,
       signInWithEmail,
       createAccountWithEmail,
       signOut,
+      refreshProfile,
     };
-  }, [isInitialized, user, profile, profileChecked, signInWithGoogle, signInWithEmail, createAccountWithEmail, signOut]);
+  }, [
+    isInitialized,
+    user,
+    profileState,
+    signInWithGoogle,
+    signInWithEmail,
+    createAccountWithEmail,
+    signOut,
+    refreshProfile,
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

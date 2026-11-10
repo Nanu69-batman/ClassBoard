@@ -1,44 +1,79 @@
 /**
- * Turns Firebase Auth error codes into something a person can act on.
+ * Turns Supabase errors into something a person can act on.
  *
- * The spec is explicit that raw Firebase errors never reach a user: they are
- * cryptic, they leak internals, and several of them are actively misleading
- * (a wrong password and a non-existent account both report
- * `auth/invalid-credential`, which must not be shown differently).
+ * Raw SDK messages never reach a user (§29): they are cryptic, can leak
+ * internals, and some are misleading. A wrong password and a non-existent
+ * account both report `invalid_credentials`, and must not be shown differently.
+ *
+ * Three error families arrive here:
+ *   - Auth errors carry a string `code` (`invalid_credentials`, …).
+ *   - Database (PostgREST) errors carry a Postgres SQLSTATE `code` (`42501`, …).
+ *   - Storage errors carry only a message and an HTTP status.
  */
 
-const MESSAGES: Record<string, string> = {
-  "auth/invalid-credential": "Incorrect email or password.",
-  "auth/invalid-email": "That does not look like a valid email address.",
-  "auth/user-disabled": "This account has been deactivated. Ask your superadmin.",
-  "auth/too-many-requests": "Too many attempts. Wait a moment and try again.",
-  "auth/network-request-failed": "Network problem. Check your connection and try again.",
-  "auth/popup-closed-by-user": "Sign-in was cancelled.",
-  "auth/popup-blocked": "Your browser blocked the sign-in popup. Allow popups and retry.",
-  "auth/cancelled-popup-request": "A sign-in window is already open. Close it and retry.",
-  "auth/account-exists-with-different-credential":
-    "An account already exists with that email using a different sign-in method.",
-  "auth/operation-not-allowed":
-    "That sign-in method is not enabled for this project yet.",
-  "auth/unauthorized-domain":
-    "This domain is not authorised for sign-in. Add it in the Firebase console.",
-  "auth/too-many-requests-quota": "Too many attempts. Wait a moment and try again.",
-  "permission-denied":
-    "You do not have permission to do that.",
-  "unavailable": "Could not reach the server. Check your connection and try again.",
+const AUTH_MESSAGES: Record<string, string> = {
+  invalid_credentials: "Incorrect email or password.",
+  email_not_confirmed: "Confirm your email first — check your inbox for the link.",
+  user_already_exists: "An account with that email already exists. Sign in instead.",
+  email_exists: "An account with that email already exists. Sign in instead.",
+  weak_password: "Choose a stronger password.",
+  email_address_invalid: "That does not look like a valid email address.",
+  validation_failed: "Check the email and password and try again.",
+  over_request_rate_limit: "Too many attempts. Wait a moment and try again.",
+  over_email_send_rate_limit: "Too many emails sent. Wait a few minutes and try again.",
+  user_banned: "This account has been deactivated. Ask your superadmin.",
+  signup_disabled: "New accounts are not being accepted right now.",
+  provider_disabled: "That sign-in method is not enabled for this project yet.",
+  email_provider_disabled: "Email sign-in is not enabled for this project yet.",
+};
+
+const DATABASE_MESSAGES: Record<string, string> = {
+  // RLS refused the row, or a trigger refused the change.
+  "42501": "You do not have permission to do that.",
+  // A CHECK constraint, e.g. a title that is too long.
+  "23514": "Some of the details are not valid. Check the form and try again.",
+  // The subject does not belong to this class, or was removed.
+  "23503": "That subject is no longer available. Pick another one.",
+  "23505": "That already exists.",
+  PGRST301: "Your session has expired. Sign in again.",
 };
 
 export function toFriendlyError(error: unknown): string {
-  const code = readCode(error);
+  if (typeof error !== "object" || error === null) return GENERIC;
 
-  if (code && MESSAGES[code]) return MESSAGES[code];
+  const { code, message, status, statusCode } = error as {
+    code?: unknown;
+    message?: unknown;
+    status?: unknown;
+    statusCode?: unknown;
+  };
 
-  // Never surface an unknown SDK message — it can contain internal detail.
-  return "Something went wrong. Please try again.";
+  if (typeof code === "string") {
+    if (AUTH_MESSAGES[code]) return AUTH_MESSAGES[code];
+    if (DATABASE_MESSAGES[code]) return DATABASE_MESSAGES[code];
+  }
+
+  const text = typeof message === "string" ? message.toLowerCase() : "";
+  const httpStatus = Number(statusCode ?? status);
+
+  // Storage
+  if (httpStatus === 413 || text.includes("maximum allowed size")) {
+    return "That file is larger than 25 MB.";
+  }
+  if (text.includes("mime type") || text.includes("invalid_mime_type")) {
+    return "That file type is not supported. Use PDF, PowerPoint, Word, Excel, text or an image.";
+  }
+  if (httpStatus === 403 || text.includes("row-level security")) {
+    return "You do not have permission to do that.";
+  }
+
+  // fetch() itself failed: offline, DNS, blocked.
+  if (error instanceof TypeError || text.includes("failed to fetch") || text.includes("network")) {
+    return "Network problem. Check your connection and try again.";
+  }
+
+  return GENERIC;
 }
 
-function readCode(error: unknown): string | null {
-  if (typeof error !== "object" || error === null) return null;
-  const code = (error as { code?: unknown }).code;
-  return typeof code === "string" ? code : null;
-}
+// Never surface an unknown SDK message — it can contain internal detail.
+const GENERIC = "Something went wrong. Please try again.";

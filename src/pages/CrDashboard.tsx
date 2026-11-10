@@ -4,18 +4,13 @@ import { useAuth } from "../auth/AuthProvider";
 import { toFriendlyError } from "../auth/errors";
 import { AssignmentForm, type Submission } from "../components/AssignmentForm";
 import { EmptyState } from "../components/EmptyState";
-import { PlusIcon } from "../components/icons";
+import { PaperclipIcon, PlusIcon } from "../components/icons";
 import { Listbox, type ListboxOption } from "../components/Listbox";
 import { PrivilegedShell, type NavItem } from "../components/PrivilegedShell";
 import { StatCards } from "../components/StatCards";
-import {
-  createAssignment,
-  setAssignmentActive,
-  updateAssignment,
-  type AssignmentDraft,
-} from "../data/crRepository";
+import { createAssignment, setAssignmentActive, updateAssignment } from "../data/crRepository";
 import type { CrAssignment } from "../data/types";
-import { useCrAssignments, useCrClass, useCrSubjects } from "../hooks/useCrData";
+import { useCrClass, useCrClassData } from "../hooks/useCrData";
 import { countAssignments, getDueLabel, sortAssignments } from "../utils/assignmentStatus";
 
 const NAV: NavItem[] = [
@@ -54,23 +49,13 @@ export function CrDashboard() {
   const [isNavOpen, setIsNavOpen] = useState(false);
 
   const classInfo = useCrClass(classId);
-  const assignments = useCrAssignments(classId);
-  const subjects = useCrSubjects(classId);
+  const { assignments, subjects } = useCrClassData(classId);
 
   const [visibility, setVisibility] = useState<Visibility>("active");
   const [editor, setEditor] = useState<Editor>({ mode: "closed" });
   const [isSaving, setIsSaving] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-
-  // The name a student will see against this assignment. Falls back through the
-  // profile and then the auth record, so a CR whose profile has no displayName
-  // still publishes something rather than an empty string.
-  // What gets published as the author of every assignment. The CR chose this
-  // name themselves in the claim form, so it is never a placeholder and never
-  // whatever a Google profile happened to say. The fallback exists only so a
-  // profile written before this field existed cannot produce an empty byline.
-  const authorName = profile?.displayName?.trim() || "Class representative";
 
   const all = assignments.data ?? [];
   const active = useMemo(() => all.filter((each) => each.active), [all]);
@@ -110,43 +95,30 @@ export function CrDashboard() {
     }
   }
 
-  function handleSubmit(submission: Submission) {
+  // The byline, subject name and author are stamped by the database from this
+  // CR's profile and the subject row, so the submission carries only what the
+  // form owns.
+  function handleSubmit({ attachment, ...draft }: Submission) {
     if (!classId) return;
 
-    // The display name is denormalised from the subject document, so a student
-    // sees it without a second read and a later subject rename cannot silently
-    // rewrite history on assignments already posted.
-    const subject = subjects.data?.find((each) => each.id === submission.subjectId);
-    const payload: AssignmentDraft = {
-      ...submission,
-      subjectName: subject?.name ?? "General",
-    };
-
     if (editor.mode === "edit") {
-      const id = editor.assignment.id;
-      void runWrite(
-        () => updateAssignment(classId, id, payload),
-        "Assignment updated.",
-      );
+      const current = editor.assignment;
+      void runWrite(() => updateAssignment(current, draft, attachment), "Assignment updated.");
       return;
     }
 
     void runWrite(
       async () => {
-        await createAssignment(classId, payload, {
-          uid: user?.uid ?? "",
-          displayName: authorName,
-        });
+        await createAssignment(classId, draft, attachment);
       },
       "Assignment posted. Your class can see it now.",
     );
   }
 
   function handleToggleActive(assignment: CrAssignment) {
-    if (!classId) return;
     const next = !assignment.active;
     void runWrite(
-      () => setAssignmentActive(classId, assignment.id, next),
+      () => setAssignmentActive(assignment.id, next),
       next ? "Assignment restored." : "Assignment archived. Students no longer see it.",
     );
   }
@@ -213,6 +185,17 @@ export function CrDashboard() {
                 <p className="record__title">{assignment.title}</p>
                 {assignment.description && (
                   <p className="record__description">{assignment.description}</p>
+                )}
+                {assignment.attachment && (
+                  <a
+                    className="row__attachment"
+                    href={assignment.attachment}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <PaperclipIcon size={13} />
+                    {assignment.attachmentName || "Attachment"}
+                  </a>
                 )}
               </div>
 
@@ -452,15 +435,13 @@ export function CrDashboard() {
             <div className="detail">
               <dt className="detail__label">Sign-in method</dt>
               <dd className="detail__value">
-                {user?.providerData?.some((provider) => provider.providerId === "google.com")
-                  ? "Google"
-                  : "Email and password"}
+                {user?.app_metadata?.provider === "google" ? "Google" : "Email and password"}
               </dd>
             </div>
           </dl>
           <p className="section-lead">
             Share the class link above with your class. Password changes go through your superadmin
-            in the Firebase console. Email self-service is optional and not enabled.
+            in the Supabase dashboard.
           </p>
         </>
       )}

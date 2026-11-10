@@ -5,9 +5,9 @@ import { HomePage } from "./pages/HomePage";
 import { StudentDashboard } from "./pages/StudentDashboard";
 
 /**
- * Five surfaces. The landing page and the student dashboard are eager; the three
- * privileged ones are lazily loaded, so a student never downloads the auth or
- * storage SDK.
+ * Five surfaces. The landing page and the student dashboard are eager; the
+ * privileged ones are lazily loaded, so a student never downloads the CR or
+ * admin screens.
  */
 const CrLoginRoute = lazy(() =>
   import("./pages/privilegedRoutes").then((m) => ({ default: m.CrLoginRoute })),
@@ -21,8 +21,8 @@ const AdminLoginRoute = lazy(() =>
 const AdminRoute = lazy(() =>
   import("./pages/privilegedRoutes").then((m) => ({ default: m.AdminRoute })),
 );
-// The invite landing page. Lazy for the same reason as the rest: it pulls in the
-// auth SDK, and a student who opens the app without a link has no use for it.
+// The invite landing page. Lazy for the same reason as the rest: a student who
+// opens the app without an invite has no use for it.
 const InviteRoute = lazy(() =>
   import("./pages/inviteRoutes").then((m) => ({ default: m.InviteRoute })),
 );

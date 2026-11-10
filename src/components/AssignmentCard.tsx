@@ -130,7 +130,7 @@ export function AssignmentCard({
             rel="noreferrer"
           >
             <PaperclipIcon size={13} />
-            {assignment.attachment.startsWith("http") ? "Open link" : "Attachment"}
+            {assignment.attachmentName || "Attachment"}
           </a>
         )}
 

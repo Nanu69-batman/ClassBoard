@@ -1,11 +1,11 @@
 /**
  * The shapes the UI renders.
  *
- * Deliberately separate from the Firestore document shape. A Firestore
- * assignment is `{ subjectId, subjectName, title, ..., attachmentUrl }`; the card
- * wants `{ subject, title, ..., attachment }`. Mapping once, in the repository,
- * means the components never learn a field name that only the backend uses — and
- * a backend rename does not ripple into the UI.
+ * Deliberately separate from the database row shape. An assignment row is
+ * `{ subject_id, subject_name, title, ..., attachment_path }`; the card wants
+ * `{ subject, title, ..., attachment }`. Mapping once, in `rows.ts`, means the
+ * components never learn a column name that only the backend uses — and a
+ * schema rename does not ripple into the UI.
  */
 
 /**
@@ -20,11 +20,7 @@ export type Priority = "none" | "low" | "normal" | "high";
 
 export type Assignment = {
   id: string;
-  /**
-   * Owning class. In Firestore this is implicit in the path
-   * `classes/{classId}/assignments/{id}` and is not stored on the document; the
-   * repository adds it so the privileged screens can scope by it.
-   */
+  /** Owning class (`assignments.class_id`). */
   classId: string;
   /** Subject display name, denormalised onto the assignment by the CR. */
   subject: string;
@@ -46,8 +42,10 @@ export type Assignment = {
    */
   dueNote: string | null;
   priority: Priority;
-  /** Public URL of an attachment, or null. Never the file bytes. */
+  /** Public URL of the attached file, or null. Never the file bytes. */
   attachment: string | null;
+  /** The file's original name, for display. Null when there is no file. */
+  attachmentName?: string | null;
   /**
    * Display name of whoever posted this, published deliberately onto the document
    * so a student can see who set the work without an account.
@@ -78,11 +76,13 @@ export type ClassInfo = {
  */
 export type CrAssignment = Assignment & {
   /**
-   * The subject's document id, as distinct from `subject` which is the
+   * The subject's row id, as distinct from `subject` which is the
    * denormalised display name. The edit form needs the id to preselect the right
    * subject; the student card only ever shows the name.
    */
   subjectId: string;
+  /** Storage object path, so an edit can replace or remove the file. */
+  attachmentPath: string | null;
   active: boolean;
   /** Optional address a CR publishes for submissions. Never a user's account email. */
   contactEmail: string | null;

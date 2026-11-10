@@ -1,5 +1,7 @@
-import { useEffect, useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
+import { ACCEPTED_EXTENSIONS, validateAttachment } from "../data/attachments";
+import type { AttachmentChange } from "../data/crRepository";
 import type { CrAssignment, Priority, SubjectInfo } from "../data/types";
 
 import { Listbox, type ListboxOption } from "./Listbox";
@@ -31,9 +33,11 @@ import { Listbox, type ListboxOption } from "./Listbox";
  * with a date has `dueNote: null`, so a card never has to choose between them,
  * and no card can show a date and a note at once.
  *
- * Attachment is absent on purpose. M7 adds the upload; until then the field is
- * not rendered at all rather than rendered disabled, because a control that cannot
- * be used should not look like one that can.
+ * ## One optional file
+ *
+ * PDF, PowerPoint, Word, Excel, text or an image, up to 25 MB. The form only
+ * records what should happen to the file — keep, remove or replace — and the
+ * repository does the upload, so a cancelled form never leaves a file behind.
  */
 
 /** The note written when a CR chooses "no deadline" and types nothing. */
@@ -55,6 +59,7 @@ type Draft = {
   dueDate: string;
   dueNote: string;
   priority: Priority;
+  attachment: AttachmentChange;
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -65,6 +70,7 @@ const EMPTY_DRAFT: Draft = {
   dueDate: "",
   dueNote: DEFAULT_DUE_NOTE,
   priority: "none",
+  attachment: { kind: "keep" },
 };
 
 /** The native `max` for a date input is fine, but cap the far future too. */
@@ -95,6 +101,7 @@ export function AssignmentForm({
   const fieldId = useId();
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [localError, setLocalError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEditing = assignment !== null;
 
@@ -134,6 +141,7 @@ export function AssignmentForm({
       dueDate: assignment.dueDate,
       dueNote: assignment.dueNote ?? DEFAULT_DUE_NOTE,
       priority: assignment.priority,
+      attachment: { kind: "keep" },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignment?.id]);
@@ -141,6 +149,26 @@ export function AssignmentForm({
   function update<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
+
+  function handleFileChosen(file: File | undefined) {
+    if (!file) return;
+    const problem = validateAttachment(file);
+    if (problem) {
+      setLocalError(problem);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setLocalError(null);
+    update("attachment", { kind: "replace", file });
+  }
+
+  function undoAttachment() {
+    // Clear the input too, or choosing the same file again fires no change.
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    update("attachment", { kind: "keep" });
+  }
+
+  const existingFile = assignment?.attachment ? assignment.attachmentName ?? "Attachment" : null;
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -170,6 +198,7 @@ export function AssignmentForm({
       dueDate: draft.usesNote ? "" : draft.dueDate,
       dueNote: draft.usesNote ? draft.dueNote.trim() || DEFAULT_DUE_NOTE : "",
       priority: draft.priority,
+      attachment: draft.attachment,
     });
   }
 
@@ -295,6 +324,76 @@ export function AssignmentForm({
             onChange={(value) => update("priority", value as Priority)}
             ariaLabel="Priority"
           />
+        </div>
+
+        <div className="field field--wide">
+          <label className="field__label" htmlFor={`${fieldId}-file`}>
+            Attachment <span className="field__optional">optional</span>
+          </label>
+
+          {draft.attachment.kind === "replace" ? (
+            <p className="field__file">
+              <span className="field__file-name">{draft.attachment.file.name}</span>
+              <button
+                type="button"
+                className="link-button"
+                onClick={undoAttachment}
+              >
+                {existingFile ? "Keep the current file" : "Remove"}
+              </button>
+            </p>
+          ) : draft.attachment.kind === "remove" ? (
+            <p className="field__file">
+              <span className="field__file-name">{existingFile} will be removed</span>
+              <button
+                type="button"
+                className="link-button"
+                onClick={undoAttachment}
+              >
+                Undo
+              </button>
+            </p>
+          ) : existingFile ? (
+            <p className="field__file">
+              <a
+                className="field__file-name"
+                href={assignment?.attachment ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {existingFile}
+              </a>
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Replace
+              </button>
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => update("attachment", { kind: "remove" })}
+              >
+                Remove
+              </button>
+            </p>
+          ) : null}
+
+          {/*
+            Always mounted, so "Replace" can open it; visible only when there is
+            no file yet.
+          */}
+          <input
+            ref={fileInputRef}
+            id={`${fieldId}-file`}
+            className="input"
+            type="file"
+            accept={ACCEPTED_EXTENSIONS}
+            hidden={draft.attachment.kind !== "keep" || existingFile !== null}
+            onChange={(event) => handleFileChosen(event.target.files?.[0])}
+          />
+          <p className="field__hint">PDF, PowerPoint, Word, Excel, text or an image. Up to 25 MB.</p>
         </div>
       </div>
 

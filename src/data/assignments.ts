@@ -3,7 +3,7 @@
  *
  * ## Scope: the privileged screens only, until M6 and M8
  *
- * The student dashboard reads Firestore through `src/data/feed.ts` and no longer
+ * The student dashboard reads Supabase through `src/data/feed.ts` and no longer
  * imports this file — real data, with a live listener, per M4.
  *
  * `/cr` and `/admin` still render from here, because assignment CRUD and the

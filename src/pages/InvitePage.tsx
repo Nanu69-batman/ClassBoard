@@ -1,18 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
 import { toFriendlyError } from "../auth/errors";
 import { DocumentIcon } from "../components/icons";
-import {
-  claimInvite,
-  preflightClaim,
-  readInviteClassId,
-  readInviteToken,
-  type ClaimOutcome,
-  type InviteFailure,
-} from "../data/invites";
-import type { ClassInfo } from "../data/types";
+import { claimInvite, peekInvite, readInviteToken, type InviteFailure } from "../data/invites";
 
 /**
  * Where an invite link lands, and the only place an account can be created.
@@ -32,27 +24,35 @@ import type { ClassInfo } from "../data/types";
  *
  * ## Nothing here is trusted
  *
- * The token and class id are read from the URL, used as a Firestore path, and
- * then verified server-side. A tampered link fails at the rules, not in this
- * component. The class name shown here comes from a public class read and is
- * display only — the rules compare the submitted classId against the invite's own
- * and refuse a mismatch.
+ * The token is read from the URL and checked server-side. The class name shown
+ * here comes from `peek_invite` and is display only — `claim_invite` takes the
+ * class from the invite row itself, so a tampered link cannot grant a different
+ * class. The claim is one transaction: if it fails, the token is not spent and
+ * the person can simply try again.
  */
 
-type Phase = "checking" | "no-token" | "choose-account" | "confirm" | "claiming";
+type Phase = "checking" | "no-token" | "ready" | "claiming";
 
 export function InvitePage() {
-  const { status, user, profile, signInWithGoogle, signInWithEmail, createAccountWithEmail } =
-    useAuth();
-  const navigate = useNavigate();
+  const {
+    status,
+    user,
+    profile,
+    signInWithGoogle,
+    signInWithEmail,
+    createAccountWithEmail,
+    signOut,
+    refreshProfile,
+  } = useAuth();
 
   const [token] = useState(readInviteToken);
-  const [classId] = useState(readInviteClassId);
 
-  const [classInfo, setClassInfo] = useState<ClassInfo | null>(null);
+  const [className, setClassName] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>(token ? "checking" : "no-token");
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  /** Set after an email sign-up that still needs its confirmation link clicked. */
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(null);
 
   // Email sign-in or sign-up. Mode is explicit rather than inferred, so a typo
   // does not silently create a second account for someone who meant to sign in.
@@ -69,47 +69,29 @@ export function InvitePage() {
       setPhase("no-token");
       return;
     }
-    if (!classId) {
-      setError("This link is incomplete. Ask your superadmin to send a new one.");
-      setPhase("no-token");
-      return;
-    }
 
     let cancelled = false;
 
     // Resolve the class name before anything is offered, so the person can see
     // which class they are being made a CR of *before* they create an account.
-    // Also catches a deactivated class while the token is still unspent.
-    void preflightClaim(classId).then((found) => {
+    // Also catches a used, expired or dead-class invite up front.
+    void peekInvite(token).then((name) => {
       if (cancelled) return;
 
-      if (!found) {
-        setError("This invite is no longer valid. Ask your superadmin for a new link.");
+      if (!name) {
+        setError("This invite has already been used, or it has expired. Ask your superadmin for a new link.");
         setPhase("no-token");
         return;
       }
 
-      setClassInfo(found);
+      setClassName(name);
+      setPhase("ready");
     });
 
     return () => {
       cancelled = true;
     };
-  }, [token, classId]);
-
-  // Move to the right screen once auth has resolved and the class is known.
-  useEffect(() => {
-    if (status === "loading" || phase === "no-token" || phase === "claiming") return;
-
-    if (status === "signed-out") {
-      setPhase("choose-account");
-    } else if (profile) {
-      // Already holds a role. There is nothing here to claim.
-      setPhase("confirm");
-    } else {
-      setPhase("confirm");
-    }
-  }, [status, profile, phase]);
+  }, [token]);
 
   async function handleGoogle() {
     setIsBusy(true);
@@ -130,7 +112,8 @@ export function InvitePage() {
 
     try {
       if (mode === "signup") {
-        await createAccountWithEmail(email, password);
+        const result = await createAccountWithEmail(email, password);
+        if (result.needsConfirmation) setAwaitingConfirmation(email);
       } else {
         await signInWithEmail(email, password);
       }
@@ -142,12 +125,10 @@ export function InvitePage() {
   }
 
   async function handleClaim() {
-    if (!user || !token || !classId) return;
+    if (!user || !token) return;
 
     setIdentityError(null);
 
-    // Validate before spending the token. The first write is irreversible, so
-    // anything checkable has to be checked before it.
     if (!displayName.trim()) {
       setIdentityError("Enter the name your class will see.");
       return;
@@ -157,24 +138,17 @@ export function InvitePage() {
     setError(null);
     setPhase("claiming");
 
-    const result: ClaimOutcome = await claimInvite(
-      token,
-      classId,
-      { uid: user.uid, email: user.email },
-      { displayName },
-    );
-
-    setIsBusy(false);
+    const result = await claimInvite(token, displayName);
 
     if (result.ok) {
-      // The AuthProvider has not yet seen the new profile, so navigate rather than
-      // re-render in place: /cr mounts a fresh provider that reads it.
-      navigate("/cr", { replace: true });
+      // Loading the new profile flips this page into the redirect to /cr below.
+      await refreshProfile();
       return;
     }
 
+    setIsBusy(false);
     setError(OUTCOME_MESSAGES[result.reason]);
-    setPhase("confirm");
+    setPhase("ready");
   }
 
   if (phase === "no-token") {
@@ -210,11 +184,16 @@ export function InvitePage() {
     <InviteShell title="You have been invited">
       <p className="auth-card__hint">
         Accepting makes you the class representative for{" "}
-        <strong>{classInfo?.displayName ?? "this class"}</strong>. You will be able to post
-        assignments for them.
+        <strong>{className ?? "this class"}</strong>. You will be able to post assignments for
+        them.
       </p>
 
-      {status === "signed-out" ? (
+      {awaitingConfirmation && status === "signed-out" ? (
+        <p className="notice" role="status">
+          We sent a confirmation link to <strong>{awaitingConfirmation}</strong>. Open it on this
+          device — it brings you back here to finish accepting.
+        </p>
+      ) : status === "signed-out" ? (
         <>
           <button
             type="button"
@@ -222,7 +201,7 @@ export function InvitePage() {
             disabled={isBusy}
             onClick={() => void handleGoogle()}
           >
-            {isBusy && mode === "signin" ? "Opening Google…" : "Continue with Google"}
+            Continue with Google
           </button>
 
           <div className="auth-card__divider">
@@ -280,10 +259,10 @@ export function InvitePage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
-                minLength={mode === "signup" ? 6 : undefined}
+                minLength={mode === "signup" ? 8 : undefined}
               />
               {mode === "signup" && (
-                <p className="field__hint">At least 6 characters.</p>
+                <p className="field__hint">At least 8 characters.</p>
               )}
             </div>
 
@@ -303,11 +282,14 @@ export function InvitePage() {
       ) : (
         <>
           <p className="invite-identity">
-            Signed in as <strong>{user?.email ?? "your account"}</strong>
+            Signed in as <strong>{user?.email ?? "your account"}</strong>.{" "}
+            <button type="button" className="link-button" onClick={() => void signOut()}>
+              Use a different account
+            </button>
           </p>
 
           {/*
-            The identity form. The name and handle written here are what appear
+            The identity form. The name written here is what appears
             against every assignment this CR posts, and they are the CR's own
             choice — a Google account's display name is whatever was on the Google
             profile, which for a student account is often a nickname or an old
@@ -351,8 +333,7 @@ export function InvitePage() {
           </button>
 
           <p className="field__hint">
-            You are becoming the class representative for {classInfo?.displayName}. You can
-            change this name later from your account.
+            You are becoming the class representative for {className}.
           </p>
         </>
       )}
@@ -393,5 +374,6 @@ function InviteShell({ title, children }: { title: string; children: React.React
 const OUTCOME_MESSAGES: Record<InviteFailure, string> = {
   "invite-invalid": "This invite has already been used, or it has expired. Ask your superadmin for a new link.",
   "already-has-role": "This account is already a class representative or an administrator.",
-  unknown: "Something went wrong accepting the invite. Ask your superadmin for a new link.",
+  "invalid-name": "Enter a name between 1 and 80 characters.",
+  unknown: "Something went wrong accepting the invite. Please try again.",
 };

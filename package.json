@@ -10,27 +10,24 @@
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.mjs",
     "seed:dry": "node scripts/seed.mjs --dry-run",
-    "test:rules": "npx --yes firebase-tools@latest emulators:exec --only firestore --project demo-classboard \"vitest run\"",
-    "test:rules:watch": "npx --yes firebase-tools@latest emulators:exec --only firestore --project demo-classboard \"vitest\"",
-    "firebase:login": "npx --yes firebase-tools@latest login",
-    "firebase:deploy:rules": "npx --yes firebase-tools@latest deploy --only firestore:rules,storage",
-    "firebase:emulators": "npx --yes firebase-tools@latest emulators:start",
-    "firebase:emulators:exec": "npx --yes firebase-tools@latest emulators:exec"
+    "invite": "node scripts/invite.mjs",
+    "bind:superadmin": "node scripts/bind-superadmin.mjs",
+    "db:push": "npx --yes supabase@latest db push"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
-    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "firebase": "^12.19.0",
-    "firebase-admin": "^14.5.0",
     "typescript": "^5.9.3",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.2"
+    "vite": "^8.3.1"
+  },
+  "engines": {
+    "node": ">=20.19"
   }
 }

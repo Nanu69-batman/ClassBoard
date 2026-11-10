@@ -27,7 +27,7 @@ function FullPageMessage({ title, message }: { title: string; message: string })
 /**
  * Client-side routing guard.
  *
- * This is for UX only. The Firestore rules are the actual boundary — §22 is
+ * This is for UX only. Row-level security in the database is the actual boundary — §22 is
  * explicit that the frontend is not a security boundary. Someone who edits this
  * component gains nothing, because every privileged write is checked
  * server-side.

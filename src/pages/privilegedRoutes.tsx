@@ -8,10 +8,10 @@ import { LoginPage } from "./LoginPage";
  * Each privileged route is its own lazily-loaded entry point that mounts the
  * AuthProvider for itself.
  *
- * Students never download the Firebase SDK at all — the dashboard uses local
- * sample data, so bundling auth behind these boundaries keeps the student
- * payload small. This is the whole reason these are separate files rather than
- * inline JSX in App.
+ * Students never download these dashboards' code. The Supabase client itself
+ * is shared (it is one package, auth included), but the CR and admin screens
+ * stay out of the student's main bundle. This is the whole reason these are
+ * separate files rather than inline JSX in App.
  */
 
 export function CrLoginRoute() {

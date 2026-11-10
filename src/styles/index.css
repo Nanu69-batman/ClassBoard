@@ -1564,6 +1564,21 @@ select {
   text-decoration-thickness: 2px;
 }
 
+/* The attachment row: the file's name, then what can be done with it. */
+.field__file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.9rem;
+  min-width: 0;
+}
+
+.field__file-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
 .form__error {
   margin-top: 0.85rem;
   padding: 0.6rem 0.75rem;
