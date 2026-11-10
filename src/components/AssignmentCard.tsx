@@ -134,8 +134,7 @@ export function AssignmentCard({
           </a>
         )}
 
-        {/* Who set the work. Denormalised onto the document by the CR on purpose,
-            so a student can see it without any account or extra read. */}
+        {/* Who set the work, stamped by the database from their profile. */}
         {assignment.postedBy && (
           <p className="row__posted-by">Posted by {assignment.postedBy}</p>
         )}

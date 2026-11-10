@@ -1,74 +1,53 @@
 import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
-import { HomePage } from "./pages/HomePage";
-import { StudentDashboard } from "./pages/StudentDashboard";
+import { useAuth } from "./auth/AuthProvider";
+import { RequireAuth } from "./auth/RequireAuth";
+import { FullPageStatus } from "./components/FullPageStatus";
+import { AuthPage } from "./pages/AuthPage";
+import { LandingPage } from "./pages/LandingPage";
 
 /**
- * Five surfaces. The landing page and the student dashboard are eager; the
- * privileged ones are lazily loaded, so a student never downloads the CR or
- * admin screens.
+ * The landing and sign-in pages are eager; the app itself is lazily loaded, so a
+ * first-time visitor reading the landing page doesn't download the dashboards.
  */
-const CrLoginRoute = lazy(() =>
-  import("./pages/privilegedRoutes").then((m) => ({ default: m.CrLoginRoute })),
-);
-const CrRoute = lazy(() =>
-  import("./pages/privilegedRoutes").then((m) => ({ default: m.CrRoute })),
-);
-const AdminLoginRoute = lazy(() =>
-  import("./pages/privilegedRoutes").then((m) => ({ default: m.AdminLoginRoute })),
-);
-const AdminRoute = lazy(() =>
-  import("./pages/privilegedRoutes").then((m) => ({ default: m.AdminRoute })),
-);
-// The invite landing page. Lazy for the same reason as the rest: a student who
-// opens the app without an invite has no use for it.
-const InviteRoute = lazy(() =>
-  import("./pages/inviteRoutes").then((m) => ({ default: m.InviteRoute })),
-);
+const AppLayout = lazy(() => import("./pages/AppLayout").then((m) => ({ default: m.AppLayout })));
+const AppHome = lazy(() => import("./pages/AppHome").then((m) => ({ default: m.AppHome })));
+const ClassPage = lazy(() => import("./pages/ClassPage").then((m) => ({ default: m.ClassPage })));
+const AccountPage = lazy(() => import("./pages/AccountPage").then((m) => ({ default: m.AccountPage })));
+const JoinPage = lazy(() => import("./pages/JoinPage").then((m) => ({ default: m.JoinPage })));
 
-function Loading() {
-  return (
-    <div className="auth-page" role="status">
-      <div className="auth-card auth-card--notice">
-        <p className="auth-card__title">Loading…</p>
-      </div>
-    </div>
-  );
+/** Signed-in people skip the landing page and go straight to their classes. */
+function Home() {
+  const { status } = useAuth();
+  if (status === "loading") return <FullPageStatus title="Loading…" />;
+  if (status === "signed-in") return <Navigate to="/app" replace />;
+  return <LandingPage />;
 }
 
 export default function App() {
   return (
-    <Suspense fallback={<Loading />}>
+    <Suspense fallback={<FullPageStatus title="Loading…" />}>
       <Routes>
-        {/*
-          Students. No account and no guard.
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<AuthPage mode="login" />} />
+        <Route path="/signup" element={<AuthPage mode="signup" />} />
 
-          `/` is the landing page, and `/class/ece-2026-a` is a class dashboard.
-          A student arrives on one from the link their CR shared; there is no way
-          to reach a class page without one, and no index of classes to browse.
+        {/* A join link works signed out too: the page asks you to sign in first. */}
+        <Route path="/join/:code" element={<JoinPage />} />
 
-          The class id is a path segment rather than a `?class=` parameter now
-          that `/` is a real page: a link a CR pastes into a chat should look
-          like a place, not a query, and the dashboard is then addressable in its
-          own right. `/` with no class is not a dashboard at all — it explains
-          how to get in.
-        */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/class/:classId" element={<StudentDashboard />} />
-
-        <Route path="/cr/login" element={<CrLoginRoute />} />
-        <Route path="/cr" element={<CrRoute />} />
-
-        {/*
-          The invite landing page. The only route in the app where an account can
-          be created, and the only one that can grant a role — so it is reachable
-          only by holding a token, and the page refuses to do anything without one.
-        */}
-        <Route path="/invite" element={<InviteRoute />} />
-
-        <Route path="/admin/login" element={<AdminLoginRoute />} />
-        <Route path="/admin" element={<AdminRoute />} />
+        <Route
+          path="/app"
+          element={
+            <RequireAuth>
+              <AppLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<AppHome />} />
+          <Route path="account" element={<AccountPage />} />
+          <Route path=":classId" element={<ClassPage />} />
+        </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

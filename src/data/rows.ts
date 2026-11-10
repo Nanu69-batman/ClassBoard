@@ -1,26 +1,28 @@
 /**
  * Database rows → the shapes the UI renders.
  *
- * Shared by the student feed and the CR repository so the two can never map the
- * same column differently. Every mapper is defensive: a malformed value becomes
- * a safe default rather than a crash on a student's phone.
+ * Every mapper is defensive: a malformed value becomes a safe default rather
+ * than a crash.
  */
 
-import { ATTACHMENTS_BUCKET, supabase } from "../lib/supabase";
-import type { Assignment, ClassInfo, CrAssignment, Priority, SubjectInfo } from "./types";
+import type {
+  Assignment,
+  ClassInfo,
+  ManagedAssignment,
+  Member,
+  MemberRole,
+  Priority,
+  SubjectInfo,
+} from "./types";
 
 const PRIORITIES: Priority[] = ["none", "low", "normal", "high"];
+const ROLES: MemberRole[] = ["owner", "admin", "member"];
 
-/** Columns the student feed reads. Never `created_by`. */
-export const ASSIGNMENT_PUBLIC_COLUMNS =
-  "id, class_id, subject_name, title, description, due_date, due_note, priority, attachment_path, attachment_name, posted_by_name";
+/** Columns every member reads. Never `created_by`. */
+export const ASSIGNMENT_COLUMNS =
+  "id, class_id, subject_id, subject_name, title, description, due_date, due_note, priority, attachment_path, attachment_name, posted_by_name, active";
 
-/** Columns the CR dashboard reads. */
-export const ASSIGNMENT_CR_COLUMNS = `${ASSIGNMENT_PUBLIC_COLUMNS}, subject_id, active, contact_email`;
-
-export const CLASS_COLUMNS = "id, name, batch, section, display_name, active";
-
-export const SUBJECT_COLUMNS = "id, class_id, name, short_name, active";
+export const SUBJECT_COLUMNS = "id, class_id, name, active";
 
 type Row = Record<string, unknown>;
 
@@ -30,6 +32,10 @@ function toText(value: unknown, fallback = ""): string {
 
 function toPriority(value: unknown): Priority {
   return PRIORITIES.includes(value as Priority) ? (value as Priority) : "none";
+}
+
+export function toRole(value: unknown): MemberRole {
+  return ROLES.includes(value as MemberRole) ? (value as MemberRole) : "member";
 }
 
 /** Postgres `date` arrives as `YYYY-MM-DD`; anything else means "no date". */
@@ -43,20 +49,24 @@ function toDueNote(value: unknown, dueDate: string): string | null {
   return trimmed.length > 0 ? trimmed.slice(0, 120) : null;
 }
 
-/** The public URL of a stored file. The bucket is public-read for students. */
-export function attachmentUrl(path: string): string {
-  return supabase.storage.from(ATTACHMENTS_BUCKET).getPublicUrl(path).data.publicUrl;
+/** A `classes` row joined with the caller's membership role. */
+export function toClassInfo(row: Row, role: unknown): ClassInfo {
+  return {
+    id: toText(row.id),
+    name: toText(row.name, "Untitled class"),
+    description: toText(row.description),
+    inviteCode: toText(row.invite_code),
+    role: toRole(role),
+  };
 }
 
-export function toClassInfo(row: Row): ClassInfo {
-  const id = toText(row.id);
+export function toMember(row: Row): Member {
+  const profile = (row.profiles ?? {}) as Row;
   return {
-    id,
-    name: toText(row.name),
-    batch: toText(row.batch),
-    section: toText(row.section),
-    displayName: toText(row.display_name) || id,
-    active: row.active === true,
+    userId: toText(row.user_id),
+    displayName: toText(profile.display_name, "Unknown"),
+    role: toRole(row.role),
+    joinedAt: toText(row.joined_at),
   };
 }
 
@@ -66,16 +76,20 @@ export function toSubject(row: Row): SubjectInfo {
     id,
     classId: toText(row.class_id),
     name: toText(row.name, id),
-    shortName: toText(row.short_name),
     active: row.active === true,
   };
 }
 
-export function toAssignment(row: Row): Assignment {
-  const dueDate = toDueDate(row.due_date);
-  const path = typeof row.attachment_path === "string" && row.attachment_path ? row.attachment_path : null;
+export function attachmentPathOf(row: Row): string | null {
+  return typeof row.attachment_path === "string" && row.attachment_path ? row.attachment_path : null;
+}
 
-  return {
+/** `signedUrls` maps object path → signed URL, fetched in one batch by the caller. */
+export function toAssignment(row: Row, signedUrls: Map<string, string>): ManagedAssignment {
+  const dueDate = toDueDate(row.due_date);
+  const path = attachmentPathOf(row);
+
+  const base: Assignment = {
     id: toText(row.id),
     classId: toText(row.class_id),
     subject: toText(row.subject_name, "General"),
@@ -84,18 +98,15 @@ export function toAssignment(row: Row): Assignment {
     dueDate,
     dueNote: toDueNote(row.due_note, dueDate),
     priority: toPriority(row.priority),
-    attachment: path ? attachmentUrl(path) : null,
+    attachment: path ? (signedUrls.get(path) ?? null) : null,
     attachmentName: path ? toText(row.attachment_name) || path.split("/").pop() || "Attachment" : null,
     postedBy: typeof row.posted_by_name === "string" ? row.posted_by_name : null,
   };
-}
 
-export function toCrAssignment(row: Row): CrAssignment {
   return {
-    ...toAssignment(row),
+    ...base,
     subjectId: toText(row.subject_id),
-    attachmentPath: typeof row.attachment_path === "string" && row.attachment_path ? row.attachment_path : null,
+    attachmentPath: path,
     active: row.active === true,
-    contactEmail: typeof row.contact_email === "string" ? row.contact_email : null,
   };
 }

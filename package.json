@@ -10,8 +10,6 @@
     "typecheck": "tsc --noEmit",
     "seed": "node scripts/seed.mjs",
     "seed:dry": "node scripts/seed.mjs --dry-run",
-    "invite": "node scripts/invite.mjs",
-    "bind:superadmin": "node scripts/bind-superadmin.mjs",
     "db:push": "npx --yes supabase@latest db push"
   },
   "dependencies": {

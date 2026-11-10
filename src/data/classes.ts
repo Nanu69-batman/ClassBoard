@@ -1,73 +1,144 @@
 /**
- * Sample classes and subjects.
+ * Classes and membership: listing, creating, joining, managing.
  *
- * These mirror the database shape and are what the seed script in M9
- * will write. The privileged dashboards read them for now so the screens can be
- * reviewed before the superadmin wiring lands in M8.
+ * Anything that changes who holds which role goes through a database function
+ * (see the migration), so the client cannot write a role or an invite code
+ * directly — the grants do not even allow the attempt.
  */
 
-export type ClassInfo = {
-  id: string;
-  name: string;
-  batch: string;
-  section: string;
-  displayName: string;
-  active: boolean;
-};
+import { supabase } from "../lib/supabase";
+import { watchTopic } from "./realtime";
+import { toClassInfo } from "./rows";
+import type { ClassInfo, Loadable, MemberRole } from "./types";
 
-export type SubjectInfo = {
-  id: string;
-  classId: string;
-  name: string;
-  shortName: string;
-  active: boolean;
-};
+/** Every class the person belongs to, oldest membership first, kept fresh. */
+export function subscribeToMyClasses(
+  userId: string,
+  onChange: (state: Loadable<ClassInfo[]>) => void,
+): () => void {
+  let latest = 0;
+  let closed = false;
 
-export const sampleClasses: ClassInfo[] = [
-  {
-    id: "ece-2026-a",
-    name: "ECE",
-    batch: "2026",
-    section: "A",
-    displayName: "ECE • 2026 • Section A",
-    active: true,
-  },
-  {
-    id: "cse-2026-a",
-    name: "CSE",
-    batch: "2026",
-    section: "A",
-    displayName: "CSE • 2026 • Section A",
-    active: true,
-  },
-  {
-    id: "it-2026-b",
-    name: "IT",
-    batch: "2026",
-    section: "B",
-    displayName: "IT • 2026 • Section B",
-    active: false,
-  },
-];
+  async function load() {
+    const ticket = ++latest;
+    const { data, error } = await supabase
+      .from("class_members")
+      .select("role, joined_at, classes(id, name, description, invite_code)")
+      .eq("user_id", userId)
+      .order("joined_at");
 
-export const sampleSubjects: SubjectInfo[] = [
-  { id: "maths", classId: "ece-2026-a", name: "Engineering Mathematics", shortName: "Maths", active: true },
-  { id: "physics", classId: "ece-2026-a", name: "Physics", shortName: "Physics", active: true },
-  { id: "eee", classId: "ece-2026-a", name: "Basic Electrical Engineering", shortName: "EEE", active: true },
-  { id: "prog", classId: "ece-2026-a", name: "Programming", shortName: "Prog", active: true },
-  { id: "electronics", classId: "ece-2026-a", name: "Electronics", shortName: "Electronics", active: true },
-  { id: "drawing", classId: "ece-2026-a", name: "Engineering Drawing", shortName: "Drawing", active: true },
-  { id: "os", classId: "cse-2026-a", name: "Operating Systems", shortName: "OS", active: true },
-  { id: "networks", classId: "cse-2026-a", name: "Computer Networks", shortName: "Networks", active: true },
-  { id: "dbms", classId: "cse-2026-a", name: "Database Management Systems", shortName: "DBMS", active: true },
-  { id: "it-101", classId: "it-2026-b", name: "Introduction to Information Technology", shortName: "IT-101", active: false },
-];
+    if (closed || ticket !== latest) return;
 
-export function getClass(classId: string | undefined): ClassInfo | undefined {
-  return sampleClasses.find((each) => each.id === classId);
+    if (error) {
+      console.error("[classboard] class list failed", error);
+      onChange({ status: "error", data: null, error: "Could not load your classes." });
+      return;
+    }
+
+    const classes = (data ?? [])
+      .filter((row) => row.classes)
+      .map((row) => toClassInfo(row.classes as unknown as Record<string, unknown>, row.role));
+    onChange({ status: "ready", data: classes, error: null });
+  }
+
+  const stop = watchTopic(`user:${userId}`, () => void load());
+  return () => {
+    closed = true;
+    stop();
+  };
 }
 
-export function getSubjectsFor(classId: string | undefined): SubjectInfo[] {
-  if (!classId) return [];
-  return sampleSubjects.filter((subject) => subject.classId === classId);
+export async function createClass(name: string, description: string): Promise<string> {
+  const { data, error } = await supabase.rpc("create_class", {
+    p_name: name.trim(),
+    p_description: description.trim(),
+  });
+  if (error) throw error;
+  return String(data);
+}
+
+export type ClassPreview = {
+  id: string;
+  name: string;
+  description: string;
+  memberCount: number;
+  isMember: boolean;
+};
+
+/** The class an invite code points at, or null when the code is not valid. */
+export async function peekClass(code: string): Promise<ClassPreview | null> {
+  const { data, error } = await supabase.rpc("peek_class", { p_code: code });
+  if (error) throw error;
+
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return null;
+
+  return {
+    id: String(row.id),
+    name: String(row.name ?? ""),
+    description: String(row.description ?? ""),
+    memberCount: Number(row.member_count ?? 0),
+    isMember: row.is_member === true,
+  };
+}
+
+/** Joins by invite code and returns the class id. Joining twice is harmless. */
+export async function joinClass(code: string): Promise<string> {
+  const { data, error } = await supabase.rpc("join_class", { p_code: code });
+  if (error) throw error;
+  return String(data);
+}
+
+/**
+ * Pulls the code out of whatever was pasted: a bare code, or a full join link
+ * such as `https://…/join/abcd23efgh`.
+ */
+export function parseInviteCode(input: string): string {
+  const trimmed = input.trim();
+  const fromLink = /\/join\/([A-Za-z0-9]+)/.exec(trimmed);
+  return (fromLink ? fromLink[1] : trimmed).toLowerCase();
+}
+
+export function inviteLink(code: string): string {
+  return `${window.location.origin}/join/${code}`;
+}
+
+export async function updateClass(classId: string, name: string, description: string): Promise<void> {
+  const { error } = await supabase
+    .from("classes")
+    .update({ name: name.trim(), description: description.trim() })
+    .eq("id", classId);
+  if (error) throw error;
+}
+
+export async function regenerateInviteCode(classId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("regenerate_invite_code", { p_class: classId });
+  if (error) throw error;
+  return String(data);
+}
+
+export async function deleteClass(classId: string): Promise<void> {
+  const { error } = await supabase.from("classes").delete().eq("id", classId);
+  if (error) throw error;
+}
+
+/** Leaving (your own id) and kicking (someone else's) are the same delete. */
+export async function removeMember(classId: string, userId: string): Promise<void> {
+  const { error, count } = await supabase
+    .from("class_members")
+    .delete({ count: "exact" })
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+  if (error) throw error;
+  // RLS turns a refused delete into "0 rows", not an error.
+  if (count === 0) throw { code: "42501" };
+}
+
+export async function setMemberRole(classId: string, userId: string, role: MemberRole): Promise<void> {
+  const { error } = await supabase.rpc("set_member_role", {
+    p_class: classId,
+    p_user: userId,
+    p_role: role,
+  });
+  if (error) throw error;
 }

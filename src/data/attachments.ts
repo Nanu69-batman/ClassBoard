@@ -3,7 +3,8 @@
  *
  * The browser checks size and type first so a CR gets an instant, specific
  * message — but the bucket enforces the same limits server-side (see the
- * migration), so editing this file does not let anything bigger through.
+ * migration), so editing this file does not let anything bigger through. The
+ * bucket is private: only members of the class can read a file.
  *
  * Objects live at `<class_id>/<assignment_id>/<file name>`. The first folder is
  * what the storage policies check against the caller's class.
@@ -91,4 +92,31 @@ export async function removeAttachment(path: string | null): Promise<void> {
   if (!path) return;
   const { error } = await supabase.storage.from(ATTACHMENTS_BUCKET).remove([path]);
   if (error) console.error("[classboard] could not remove attachment", error);
+}
+
+/** How long a file link stays valid. Lists refetch on every change, renewing them. */
+const SIGNED_URL_SECONDS = 60 * 60 * 6;
+
+/**
+ * Signed URLs for a batch of object paths, in one request. The bucket is
+ * private, so this is the only way to open a file; Storage checks that the
+ * caller is a member of the file's class.
+ */
+export async function signedUrls(paths: string[]): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (paths.length === 0) return result;
+
+  const { data, error } = await supabase.storage
+    .from(ATTACHMENTS_BUCKET)
+    .createSignedUrls(paths, SIGNED_URL_SECONDS);
+
+  if (error) {
+    console.error("[classboard] could not sign attachment links", error);
+    return result;
+  }
+
+  for (const entry of data ?? []) {
+    if (entry.path && entry.signedUrl) result.set(entry.path, entry.signedUrl);
+  }
+  return result;
 }

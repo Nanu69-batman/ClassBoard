@@ -9,23 +9,16 @@ dist-ssr/
 build/
 *.local
 
-# Environment — ClassBoard commits its Firebase web config in
-# src/lib/firebase.ts, so no .env is needed. These rules are a safety net for
-# anyone who forks the project and switches to env-based config.
+# Environment — the public Supabase URL and anon key are committed in
+# src/lib/supabase.ts. .env.local holds the service_role key for scripts/ and
+# must never be committed.
 .env
 .env.*
 !.env.example
 
-# Firebase credentials — never commit these.
-# The service account JSON used by `npm run seed` must stay local.
-*service-account*.json
-*serviceAccount*.json
-firebase-adminsdk-*.json
-.firebase/
-firebase-debug.log*
-firestore-debug.log*
-ui-debug.log*
-*-debug.log
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
 
 # Logs
 logs/

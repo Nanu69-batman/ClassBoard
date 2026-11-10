@@ -21,7 +21,7 @@ const AUTH_MESSAGES: Record<string, string> = {
   validation_failed: "Check the email and password and try again.",
   over_request_rate_limit: "Too many attempts. Wait a moment and try again.",
   over_email_send_rate_limit: "Too many emails sent. Wait a few minutes and try again.",
-  user_banned: "This account has been deactivated. Ask your superadmin.",
+  user_banned: "This account has been deactivated.",
   signup_disabled: "New accounts are not being accepted right now.",
   provider_disabled: "That sign-in method is not enabled for this project yet.",
   email_provider_disabled: "Email sign-in is not enabled for this project yet.",
@@ -38,6 +38,15 @@ const DATABASE_MESSAGES: Record<string, string> = {
   PGRST301: "Your session has expired. Sign in again.",
 };
 
+/** Errors raised by name from the database functions (see the migration). */
+const FUNCTION_MESSAGES: Record<string, string> = {
+  "invite-invalid": "That invite code doesn't match any class. Check it and try again.",
+  "invalid-name": "Give it a name between 1 and 80 characters.",
+  "too-many-classes": "You own the maximum number of classes. Delete one first.",
+  "not-allowed": "You do not have permission to do that.",
+  "not-signed-in": "Your session has expired. Sign in again.",
+};
+
 export function toFriendlyError(error: unknown): string {
   if (typeof error !== "object" || error === null) return GENERIC;
 
@@ -48,12 +57,17 @@ export function toFriendlyError(error: unknown): string {
     statusCode?: unknown;
   };
 
+  const raw = typeof message === "string" ? message.toLowerCase() : "";
+  for (const [key, friendly] of Object.entries(FUNCTION_MESSAGES)) {
+    if (raw.includes(key)) return friendly;
+  }
+
   if (typeof code === "string") {
     if (AUTH_MESSAGES[code]) return AUTH_MESSAGES[code];
     if (DATABASE_MESSAGES[code]) return DATABASE_MESSAGES[code];
   }
 
-  const text = typeof message === "string" ? message.toLowerCase() : "";
+  const text = raw;
   const httpStatus = Number(statusCode ?? status);
 
   // Storage

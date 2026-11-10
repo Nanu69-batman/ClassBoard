@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
 import { ACCEPTED_EXTENSIONS, validateAttachment } from "../data/attachments";
-import type { AttachmentChange } from "../data/crRepository";
-import type { CrAssignment, Priority, SubjectInfo } from "../data/types";
+import type { AttachmentChange } from "../data/assignments";
+import type { ManagedAssignment, Priority, SubjectInfo } from "../data/types";
 
 import { Listbox, type ListboxOption } from "./Listbox";
 
@@ -78,7 +78,7 @@ const MAX_DUE_DATE = "2100-12-31";
 
 type AssignmentFormProps = {
   /** Null for a new assignment; the one being edited otherwise. */
-  assignment: CrAssignment | null;
+  assignment: ManagedAssignment | null;
   subjects: SubjectInfo[];
   /** Set while a write is in flight, to disable the submit button (§28). */
   isSaving: boolean;
@@ -145,6 +145,14 @@ export function AssignmentForm({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignment?.id]);
+
+  // If the form opened before subjects loaded, fill in the default subject once
+  // they arrive. Never overrides a subject that is already chosen.
+  const firstSubjectId = subjectOptions[0]?.value ?? "";
+  useEffect(() => {
+    if (assignment || !firstSubjectId) return;
+    setDraft((current) => (current.subjectId ? current : { ...current, subjectId: firstSubjectId }));
+  }, [assignment, firstSubjectId]);
 
   function update<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));

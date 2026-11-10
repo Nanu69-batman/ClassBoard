@@ -11,13 +11,9 @@ import type { User } from "@supabase/supabase-js";
 
 import { supabase } from "../lib/supabase";
 
-/** The `profiles` row. The only authority on what a person may do. */
+/** The `profiles` row. Every account has one, created by a database trigger. */
 export type UserProfile = {
-  role: "cr" | "superadmin";
-  classId?: string;
-  active: boolean;
-  displayName?: string;
-  email?: string;
+  displayName: string;
 };
 
 export type AuthStatus = "loading" | "signed-out" | "signed-in";
@@ -27,74 +23,48 @@ export type SignUpResult = { needsConfirmation: boolean };
 
 type AuthValue = {
   status: AuthStatus;
-  /** The Supabase identity, or null. */
   user: User | null;
-  /** The `profiles` row, or null when there is none. */
+  /** Null only while loading, or if the read failed. */
   profile: UserProfile | null;
-  /**
-   * True when signed in but holding no role at all — a self-registered account,
-   * or a CR who has not claimed an invite yet. Such a person can read the
-   * public feed and nothing else.
-   */
-  hasNoRole: boolean;
-  isCr: boolean;
-  isSuperadmin: boolean;
-  /** Redirects to Google and back to the current page. */
-  signInWithGoogle: () => Promise<void>;
+  /** The name to show for the signed-in person, with sensible fallbacks. */
+  displayName: string;
+  /** Redirects to Google and back to `returnTo` (a path in this app). */
+  signInWithGoogle: (returnTo: string) => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  createAccountWithEmail: (email: string, password: string) => Promise<SignUpResult>;
+  signUpWithEmail: (
+    name: string,
+    email: string,
+    password: string,
+    returnTo: string,
+  ) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
-  /** Re-reads the profile, e.g. right after claiming an invite. */
-  refreshProfile: () => Promise<void>;
+  updateDisplayName: (name: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
 
 type ProfileState = { userId: string; profile: UserProfile | null };
 
-function toProfile(row: Record<string, unknown>): UserProfile | null {
-  if (row.role !== "cr" && row.role !== "superadmin") return null;
-  return {
-    role: row.role,
-    classId: typeof row.class_id === "string" ? row.class_id : undefined,
-    active: row.active === true,
-    displayName: typeof row.display_name === "string" ? row.display_name : undefined,
-    email: typeof row.email === "string" ? row.email : undefined,
-  };
-}
-
 async function fetchProfile(userId: string): Promise<UserProfile | null> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("role, class_id, active, display_name, email")
+    .select("display_name")
     .eq("id", userId)
     .maybeSingle();
 
-  // A read failure must not invent a role. Null makes every guard deny, which is
-  // the safe direction.
   if (error || !data) return null;
-  return toProfile(data);
+  return { displayName: typeof data.display_name === "string" ? data.display_name : "" };
 }
 
-/** Where to come back to after a redirect: this exact page, query included. */
-function currentUrl(): string {
-  return window.location.href;
+function absolute(path: string): string {
+  return new URL(path, window.location.origin).toString();
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  /**
-   * False until the persisted session has been restored. Reporting "signed-out"
-   * before then would bounce a signed-in person to the login page, and because
-   * each route mounts its own provider that becomes a redirect loop.
-   */
+  /** False until the persisted session has been restored. */
   const [isInitialized, setIsInitialized] = useState(false);
-  /**
-   * The profile, tagged with whose it is. A profile is only trusted while its
-   * userId matches the current user, so a sign-in or account switch can never
-   * briefly show the previous person's role — or "no role" before the new one
-   * has loaded.
-   */
+  /** Tagged with whose profile it is, so an account switch never shows the old name. */
   const [profileState, setProfileState] = useState<ProfileState | null>(null);
 
   useEffect(() => {
@@ -121,13 +91,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const userId = user?.id ?? null;
 
-  const loadProfile = useCallback(async (id: string) => {
-    // Tagged with the id it was fetched for; the value below ignores it if the
-    // signed-in user has changed in the meantime.
-    const profile = await fetchProfile(id);
-    setProfileState({ userId: id, profile });
-  }, []);
-
   useEffect(() => {
     if (!userId) {
       setProfileState(null);
@@ -144,10 +107,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [userId]);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (returnTo: string) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: currentUrl() },
+      options: { redirectTo: absolute(returnTo) },
     });
     if (error) throw error;
   }, []);
@@ -157,25 +120,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
-  const createAccountWithEmail = useCallback(async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      // The confirmation email links back to this page — for the invite page,
-      // that keeps the token in the URL.
-      options: { emailRedirectTo: currentUrl() },
-    });
-    if (error) throw error;
-    return { needsConfirmation: data.session === null };
-  }, []);
+  const signUpWithEmail = useCallback(
+    async (name: string, email: string, password: string, returnTo: string) => {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          // Read by the database trigger that creates the profile.
+          data: { display_name: name.trim() },
+          emailRedirectTo: absolute(returnTo),
+        },
+      });
+      if (error) throw error;
+      return { needsConfirmation: data.session === null };
+    },
+    [],
+  );
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
 
-  const refreshProfile = useCallback(async () => {
-    if (userId) await loadProfile(userId);
-  }, [userId, loadProfile]);
+  const updateDisplayName = useCallback(
+    async (name: string) => {
+      if (!userId) return;
+      const trimmed = name.trim();
+      const { error } = await supabase.from("profiles").update({ display_name: trimmed }).eq("id", userId);
+      if (error) throw error;
+      setProfileState({ userId, profile: { displayName: trimmed } });
+    },
+    [userId],
+  );
 
   const value = useMemo<AuthValue>(() => {
     const signedIn = user !== null;
@@ -183,23 +158,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const profile = profileLoaded ? profileState.profile : null;
 
     return {
-      status: !isInitialized
-        ? "loading"
-        : !signedIn
-          ? "signed-out"
-          : profileLoaded
-            ? "signed-in"
-            : "loading",
+      status: !isInitialized ? "loading" : !signedIn ? "signed-out" : profileLoaded ? "signed-in" : "loading",
       user,
       profile,
-      hasNoRole: profileLoaded && profile === null,
-      isCr: profile?.role === "cr" && profile.active,
-      isSuperadmin: profile?.role === "superadmin" && profile.active,
+      displayName: profile?.displayName || user?.email?.split("@")[0] || "You",
       signInWithGoogle,
       signInWithEmail,
-      createAccountWithEmail,
+      signUpWithEmail,
       signOut,
-      refreshProfile,
+      updateDisplayName,
     };
   }, [
     isInitialized,
@@ -207,9 +174,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profileState,
     signInWithGoogle,
     signInWithEmail,
-    createAccountWithEmail,
+    signUpWithEmail,
     signOut,
-    refreshProfile,
+    updateDisplayName,
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

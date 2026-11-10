@@ -115,3 +115,39 @@ export function PlusIcon({ size = 16, className }: IconProps) {
     </svg>
   );
 }
+
+export function UsersIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+      <path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8" />
+    </svg>
+  );
+}
+
+export function HomeIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="M3.5 10.5 12 4l8.5 6.5" />
+      <path d="M5.5 9v10.5h13V9" />
+    </svg>
+  );
+}
+
+export function LinkIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+      <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+    </svg>
+  );
+}
+
+export function CloseIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
