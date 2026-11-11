@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
 import type { Assignment } from "../../data/types";
 import {
@@ -14,14 +14,16 @@ import { ChevronLeftIcon, ChevronRightIcon, DocumentIcon } from "../icons";
 type Props = {
   assignments: Assignment[];
   isCompleted: (id: string) => boolean;
+  /** Called when a day or an upcoming item is followed, e.g. to close the sheet it sits in. */
+  onPick?: () => void;
 };
 
 /** The side column of the assignments tab: a month of due dates, then what's next. */
-export function Agenda({ assignments, isCompleted }: Props) {
+export function Agenda({ assignments, isCompleted, onPick, className = "agenda" }: Props & { className?: string }) {
   return (
-    <aside className="agenda" aria-label="Due dates">
-      <MonthCalendar assignments={assignments} isCompleted={isCompleted} />
-      <UpcomingList assignments={assignments} isCompleted={isCompleted} />
+    <aside className={className} aria-label="Due dates">
+      <MonthCalendar assignments={assignments} isCompleted={isCompleted} onPick={onPick} />
+      <UpcomingList assignments={assignments} isCompleted={isCompleted} onPick={onPick} />
     </aside>
   );
 }
@@ -54,7 +56,8 @@ function isoDay(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-function MonthCalendar({ assignments, isCompleted }: Props) {
+function MonthCalendar({ assignments, isCompleted, onPick }: Props) {
+  const titleId = useId();
   const today = new Date();
   const todayKey = isoDay(today.getFullYear(), today.getMonth(), today.getDate());
   const [cursor, setCursor] = useState(() => ({ year: today.getFullYear(), month: today.getMonth() }));
@@ -91,9 +94,9 @@ function MonthCalendar({ assignments, isCompleted }: Props) {
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
 
   return (
-    <section className="side-card" aria-labelledby="calendar-title">
+    <section className="side-card" aria-labelledby={titleId}>
       <div className="side-card__head">
-        <h2 className="side-card__title" id="calendar-title">
+        <h2 className="side-card__title" id={titleId}>
           {isCurrentMonth ? "This month" : "Calendar"}
         </h2>
         {!isCurrentMonth && (
@@ -174,6 +177,7 @@ function MonthCalendar({ assignments, isCompleted }: Props) {
                       aria-current={isToday ? "date" : undefined}
                       aria-label={`${day} ${monthLabel}: ${titles}`}
                       title={titles}
+                      onClick={onPick}
                     >
                       {day}
                     </a>
@@ -208,7 +212,8 @@ function whenText(dueDate: string): string {
   return getShortDueText(dueDate);
 }
 
-function UpcomingList({ assignments, isCompleted }: Props) {
+function UpcomingList({ assignments, isCompleted, onPick }: Props) {
+  const titleId = useId();
   const next = useMemo(
     () =>
       assignments
@@ -219,8 +224,8 @@ function UpcomingList({ assignments, isCompleted }: Props) {
   );
 
   return (
-    <section className="side-card" aria-labelledby="upcoming-title">
-      <h2 className="side-card__title" id="upcoming-title">
+    <section className="side-card" aria-labelledby={titleId}>
+      <h2 className="side-card__title" id={titleId}>
         Upcoming
       </h2>
 
@@ -232,7 +237,7 @@ function UpcomingList({ assignments, isCompleted }: Props) {
             const tone = toneFor(getAssignmentStatus(each, false));
             return (
               <li key={each.id}>
-                <a className={`upcoming__item upcoming__item--${tone}`} href={`#${assignmentAnchor(each.id)}`}>
+                <a className={`upcoming__item upcoming__item--${tone}`} href={`#${assignmentAnchor(each.id)}`} onClick={onPick}>
                   <span className="upcoming__icon" aria-hidden="true">
                     <DocumentIcon size={18} />
                   </span>

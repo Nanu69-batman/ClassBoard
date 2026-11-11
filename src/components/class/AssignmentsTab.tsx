@@ -6,8 +6,10 @@ import { countAssignments, groupAssignmentsByStatus } from "../../utils/assignme
 import { AssignmentList } from "../AssignmentList";
 import { EmptyState } from "../EmptyState";
 import { FilterBar, type StatusFilter } from "../FilterBar";
-import { SearchIcon } from "../icons";
+import { CalendarIcon, SearchIcon } from "../icons";
+import { PHONE_QUERY, useHorizontalSwipe, useMediaQuery } from "../../lib/gestures";
 import { Agenda } from "./Agenda";
+import { AgendaSheet } from "./AgendaSheet";
 
 const ALL_SUBJECTS = "all";
 
@@ -31,6 +33,21 @@ export function AssignmentsTab({ data, isCompleted, onToggle, toggleError }: Pro
   const [subject, setSubject] = useState(ALL_SUBJECTS);
   const [lastToggledId, setLastToggledId] = useState<string | null>(null);
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null);
+
+  // On a phone the agenda lives in a sheet: a right-to-left swipe or the
+  // calendar button opens it, a left-to-right swipe closes it.
+  const isPhone = useMediaQuery(PHONE_QUERY);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => {
+    if (!isPhone) setSheetOpen(false);
+  }, [isPhone]);
+  useHorizontalSwipe({
+    enabled: isPhone,
+    onSwipeLeft: ({ overlayWasOpen }) => {
+      if (!overlayWasOpen) setSheetOpen(true);
+    },
+    onSwipeRight: () => setSheetOpen(false),
+  });
 
   useEffect(() => {
     if (!justCompletedId) return;
@@ -142,7 +159,27 @@ export function AssignmentsTab({ data, isCompleted, onToggle, toggleError }: Pro
         )}
       </div>
 
-      <Agenda assignments={assignments} isCompleted={isCompleted} />
+      {isPhone ? (
+        <>
+          <button
+            type="button"
+            className="fab"
+            aria-label="Open calendar"
+            aria-haspopup="dialog"
+            onClick={() => setSheetOpen(true)}
+          >
+            <CalendarIcon size={22} />
+          </button>
+          <AgendaSheet
+            open={sheetOpen}
+            onClose={() => setSheetOpen(false)}
+            assignments={assignments}
+            isCompleted={isCompleted}
+          />
+        </>
+      ) : (
+        <Agenda assignments={assignments} isCompleted={isCompleted} />
+      )}
     </div>
   );
 }
