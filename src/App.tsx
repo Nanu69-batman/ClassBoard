@@ -47,6 +47,8 @@ export default function App() {
           <Route index element={<AppHome />} />
           <Route path="account" element={<AccountPage />} />
           <Route path=":classId" element={<ClassPage />} />
+          <Route path=":classId/manage" element={<ClassPage view="manage" />} />
+          <Route path=":classId/manage/:section" element={<ClassPage view="manage" />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

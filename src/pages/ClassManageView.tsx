@@ -1,0 +1,121 @@
+import { useCallback } from "react";
+import { Link, NavLink, Navigate, useParams, useSearchParams } from "react-router-dom";
+
+import { useAuth } from "../auth/AuthProvider";
+import { ManageTab } from "../components/class/ManageTab";
+import { MembersTab } from "../components/class/MembersTab";
+import { SettingsTab } from "../components/class/SettingsTab";
+import { EmptyState } from "../components/EmptyState";
+import { ArrowLeftIcon, DocumentIcon, SettingsIcon, UsersIcon } from "../components/icons";
+import { PageHero } from "../components/PageHero";
+import { canManage, type ClassInfo } from "../data/types";
+import { useClassData } from "../data/useClassData";
+
+type ManageSection = "assignments" | "members" | "settings";
+
+const SECTION_IDS: readonly ManageSection[] = ["assignments", "members", "settings"];
+
+/** What the button into this page is called: running the class, or just its settings. */
+export function manageLabel(info: ClassInfo): string {
+  return canManage(info.role) ? "Manage class" : "Class settings";
+}
+
+/**
+ * `/app/:classId/manage/:section`: everything about running the class, kept off
+ * the class page so that page can be about the work alone.
+ *
+ * Owners and admins get Assignments (post, edit, archive, subjects); everyone
+ * gets Members and Settings (the invite link, and leaving).
+ */
+export function ClassManageView({ info }: { info: ClassInfo }) {
+  const { user } = useAuth();
+  const userId = user?.id ?? "";
+  const manager = canManage(info.role);
+  const { section: rawSection } = useParams<{ section?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const [data] = useClassData(info.id, userId);
+
+  // "Post assignment" on the class page lands here with ?compose=1.
+  const composeRequested = searchParams.get("compose") === "1";
+  const onComposeHandled = useCallback(
+    () =>
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.delete("compose");
+          return next;
+        },
+        { replace: true },
+      ),
+    [setSearchParams],
+  );
+
+  const base = `/app/${info.id}/manage`;
+  const fallback: ManageSection = manager ? "assignments" : "members";
+  const section = SECTION_IDS.find((each) => each === rawSection);
+
+  // No section, an unknown one, or Assignments for someone who can't post
+  // (including after a demotion while it's open).
+  if (!section || (section === "assignments" && !manager)) {
+    return <Navigate to={`${base}/${fallback}`} replace />;
+  }
+
+  const memberCount = data.data ? ` · ${data.data.members.length}` : "";
+  const nav = [
+    ...(manager ? [{ id: "assignments" as const, label: "Assignments", icon: DocumentIcon }] : []),
+    { id: "members" as const, label: `Members${memberCount}`, icon: UsersIcon },
+    { id: "settings" as const, label: "Settings", icon: SettingsIcon },
+  ];
+
+  return (
+    <main className="content content--wide">
+      <Link className="back-link" to={`/app/${info.id}`}>
+        <ArrowLeftIcon size={15} />
+        Back to {info.name}
+      </Link>
+
+      <PageHero
+        eyebrow={info.name}
+        title={manageLabel(info)}
+        subtitle={
+          manager
+            ? "Post and edit work, look after members, and change how the class is set up."
+            : "Who's in the class, the invite link, and leaving."
+        }
+      />
+
+      <div className="manage">
+        <nav className="manage__nav" aria-label={manageLabel(info)}>
+          {nav.map(({ id, label, icon: Icon }) => (
+            <NavLink key={id} to={`${base}/${id}`} className="manage__link">
+              <Icon size={18} />
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="manage__panel tab-panel">
+          {data.status === "error" && section !== "settings" && (
+            <EmptyState title="Something went wrong" message={data.error} />
+          )}
+
+          {section === "assignments" && data.status !== "error" && (
+            <ManageTab
+              classId={info.id}
+              data={data}
+              composeRequested={composeRequested}
+              onComposeHandled={onComposeHandled}
+            />
+          )}
+
+          {section === "members" && data.status !== "error" && (
+            <MembersTab info={info} members={data.data?.members ?? null} />
+          )}
+
+          {section === "settings" && <SettingsTab info={info} />}
+        </div>
+      </div>
+    </main>
+  );
+}

@@ -1,26 +1,28 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
 import { toFriendlyError } from "../auth/errors";
 import { AssignmentsTab } from "../components/class/AssignmentsTab";
-import { ManageTab } from "../components/class/ManageTab";
-import { MembersTab } from "../components/class/MembersTab";
-import { SettingsTab } from "../components/class/SettingsTab";
 import { EmptyState } from "../components/EmptyState";
-import { LinkIcon, PlusIcon } from "../components/icons";
+import { LinkIcon, PlusIcon, SettingsIcon } from "../components/icons";
 import { PageHero } from "../components/PageHero";
 import { inviteLink } from "../data/classes";
-import { setCompleted, subscribeToClassData, type ClassData } from "../data/classData";
+import { setCompleted, type ClassData } from "../data/classData";
 import { canManage, ROLE_LABELS, type ClassInfo, type Loadable } from "../data/types";
+import { useClassData } from "../data/useClassData";
 import { countAssignments } from "../utils/assignmentStatus";
 import { useAppContext } from "./AppLayout";
+import { ClassManageView, manageLabel } from "./ClassManageView";
 
-type Tab = "assignments" | "manage" | "members" | "settings";
-
-const LOADING: Loadable<ClassData> = { status: "loading", data: null, error: null };
-
-export function ClassPage() {
+/**
+ * `/app/:classId` and `/app/:classId/manage/:section`.
+ *
+ * The class itself is for the work: assignments now, practicals and files
+ * later. Running the class (posting, members, settings) is a separate page, so
+ * the two never compete for the same row of tabs.
+ */
+export function ClassPage({ view = "class" }: { view?: "class" | "manage" }) {
   const { classId = "" } = useParams<{ classId: string }>();
   const { classes } = useAppContext();
 
@@ -48,34 +50,27 @@ export function ClassPage() {
     );
   }
 
-  // Keyed so switching classes resets tabs, filters and the editor.
-  return <ClassView key={info.id} info={info} />;
+  // Keyed so switching classes resets filters and the editor.
+  return view === "manage" ? <ClassManageView key={info.id} info={info} /> : <ClassView key={info.id} info={info} />;
 }
+
+/** The kinds of work a class holds. Practicals and files will join this list. */
+type Section = "assignments";
+
+const SECTIONS: { id: Section; label: string }[] = [{ id: "assignments", label: "Assignments" }];
 
 function ClassView({ info }: { info: ClassInfo }) {
   const { user } = useAuth();
   const userId = user?.id ?? "";
+  const navigate = useNavigate();
   const manager = canManage(info.role);
 
-  const [tab, setTab] = useState<Tab>("assignments");
-  const [data, setData] = useState<Loadable<ClassData>>(LOADING);
+  const [section, setSection] = useState<Section>("assignments");
+  const [data, setData] = useClassData(info.id, userId);
   /** Ticks the person changed that the server has not confirmed yet. */
   const [pending, setPending] = useState<Map<string, boolean>>(new Map());
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  /** Asks the Manage tab to open a blank form. */
-  const [composeRequested, setComposeRequested] = useState(false);
-  const onComposeHandled = useCallback(() => setComposeRequested(false), []);
-
-  useEffect(() => {
-    if (!userId) return;
-    return subscribeToClassData(info.id, userId, setData);
-  }, [info.id, userId]);
-
-  // A role change can take Manage away while it is open.
-  useEffect(() => {
-    if (!manager && tab === "manage") setTab("assignments");
-  }, [manager, tab]);
 
   const serverCompleted = data.data?.completedIds;
 
@@ -110,7 +105,7 @@ function ClassView({ info }: { info: ClassInfo }) {
           }),
         );
     },
-    [isCompleted, userId],
+    [isCompleted, userId, setData],
   );
 
   async function copyInvite() {
@@ -119,16 +114,10 @@ function ClassView({ info }: { info: ClassInfo }) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      setTab("settings");
+      // No clipboard access: the settings page shows the link to copy by hand.
+      navigate(`/app/${info.id}/manage/settings`);
     }
   }
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "assignments", label: "Assignments" },
-    ...(manager ? [{ id: "manage" as const, label: "Manage" }] : []),
-    { id: "members", label: `Members${data.data ? ` · ${data.data.members.length}` : ""}` },
-    { id: "settings", label: "Settings" },
-  ];
 
   return (
     <main className="content content--wide">
@@ -147,44 +136,41 @@ function ClassView({ info }: { info: ClassInfo }) {
               <LinkIcon size={15} />
               {copied ? "Link copied" : "Invite"}
             </button>
+            <Link className="button button--ghost" to={`/app/${info.id}/manage`}>
+              <SettingsIcon size={15} />
+              {manageLabel(info)}
+            </Link>
             {manager && (
-              <button
-                type="button"
-                className="button button--primary"
-                onClick={() => {
-                  setTab("manage");
-                  setComposeRequested(true);
-                }}
-              >
+              <Link className="button button--primary" to={`/app/${info.id}/manage/assignments?compose=1`}>
                 <PlusIcon size={15} />
                 Post assignment
-              </button>
+              </Link>
             )}
           </>
         }
       />
 
-      <div className="tabs" role="tablist" aria-label="Class sections">
-        {tabs.map((each) => (
+      <div className="tabs" role="tablist" aria-label="Class work">
+        {SECTIONS.map((each) => (
           <button
             key={each.id}
             type="button"
             role="tab"
             id={`tab-${each.id}`}
-            aria-selected={tab === each.id}
+            aria-selected={section === each.id}
             aria-controls="class-panel"
-            className={`tabs__tab${tab === each.id ? " tabs__tab--active" : ""}`}
-            onClick={() => setTab(each.id)}
+            className={`tabs__tab${section === each.id ? " tabs__tab--active" : ""}`}
+            onClick={() => setSection(each.id)}
           >
             {each.label}
           </button>
         ))}
       </div>
 
-      <div className="tab-panel" id="class-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
+      <div className="tab-panel" id="class-panel" role="tabpanel" aria-labelledby={`tab-${section}`}>
         {data.status === "error" && <EmptyState title="Something went wrong" message={data.error} />}
 
-        {tab === "assignments" && data.status !== "error" && (
+        {section === "assignments" && data.status !== "error" && (
           <AssignmentsTab
             data={data}
             isCompleted={isCompleted}
@@ -192,21 +178,6 @@ function ClassView({ info }: { info: ClassInfo }) {
             toggleError={toggleError}
           />
         )}
-
-        {tab === "manage" && manager && data.status !== "error" && (
-          <ManageTab
-            classId={info.id}
-            data={data}
-            composeRequested={composeRequested}
-            onComposeHandled={onComposeHandled}
-          />
-        )}
-
-        {tab === "members" && data.status !== "error" && (
-          <MembersTab info={info} members={data.data?.members ?? null} />
-        )}
-
-        {tab === "settings" && <SettingsTab info={info} />}
       </div>
     </main>
   );
