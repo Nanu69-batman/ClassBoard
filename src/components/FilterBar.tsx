@@ -23,13 +23,10 @@ type FilterBarProps = {
 const ALL_SUBJECTS = "all";
 
 /**
- * The completion filter and the subject filter.
+ * The completion filter and the subject filter, as two matching dropdowns.
  *
- * Both are listboxes rather than segmented buttons and a native select. The
- * subject list grows with the class and is sorted alphabetically, so a dropdown
- * is the right control; and having the two filters behave identically — same
- * open, same animation, same keyboard handling — is worth more than two
- * different-looking controls.
+ * Neither has a visible label: what each one holds ("All", "All subjects")
+ * says what it filters, and each has an accessible name for screen readers.
  */
 export function FilterBar({
   statusFilter,
@@ -38,6 +35,11 @@ export function FilterBar({
   subject,
   onSubjectChange,
 }: FilterBarProps) {
+  const statusOptions: ListboxOption[] = STATUS_FILTERS.map((value) => ({
+    value,
+    label: STATUS_FILTER_LABELS[value],
+  }));
+
   // "All subjects" is prepended rather than being a null value, so the trigger
   // always has something to display.
   const subjectOptions: ListboxOption[] = [
@@ -47,32 +49,20 @@ export function FilterBar({
 
   return (
     <div className="filters">
-      <div className="segmented" role="group" aria-label="Filter assignments by completion">
-        {STATUS_FILTERS.map((value) => (
-          <button
-            key={value}
-            type="button"
-            className="segmented__button"
-            aria-pressed={statusFilter === value}
-            onClick={() => onStatusFilterChange(value)}
-          >
-            {STATUS_FILTER_LABELS[value]}
-          </button>
-        ))}
-      </div>
-
-      <div className="filters__subject">
-        <label className="filters__label" htmlFor="subject-filter">
-          Subject
-        </label>
-        <Listbox
-          id="subject-filter"
-          options={subjectOptions}
-          value={subject}
-          onChange={onSubjectChange}
-          ariaLabel="Filter by subject"
-        />
-      </div>
+      <Listbox
+        id="status-filter"
+        options={statusOptions}
+        value={statusFilter}
+        onChange={(value) => onStatusFilterChange(value as StatusFilter)}
+        ariaLabel="Show assignments"
+      />
+      <Listbox
+        id="subject-filter"
+        options={subjectOptions}
+        value={subject}
+        onChange={onSubjectChange}
+        ariaLabel="Filter by subject"
+      />
     </div>
   );
 }

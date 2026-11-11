@@ -204,3 +204,14 @@ export function ArrowLeftIcon({ size = 16, className }: IconProps) {
     </svg>
   );
 }
+
+/** Three dots in a row: "more options". Filled, so they read at small sizes. */
+export function DotsIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="currentColor" stroke="none">
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
+    </svg>
+  );
+}

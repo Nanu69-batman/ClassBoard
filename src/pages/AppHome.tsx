@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { EmptyState } from "../components/EmptyState";
 import { LinkIcon, PlusIcon } from "../components/icons";
+import { ClassMenu } from "../components/ClassMenu";
 import { BooksIllustration } from "../components/illustrations";
 import { PageHero } from "../components/PageHero";
 import { ROLE_LABELS } from "../data/types";
@@ -65,8 +66,8 @@ export function AppHome() {
       {list.length > 0 && (
         <ul className="class-grid">
           {list.map((each) => (
-            <li key={each.id}>
-              <Link to={`/app/${each.id}`} className="class-card">
+            <li key={each.id} className="class-card">
+              <Link to={`/app/${each.id}`} className="class-card__link">
                 <span className="class-card__icon" aria-hidden="true">
                   {initials(each.name)}
                 </span>
@@ -76,6 +77,7 @@ export function AppHome() {
                 </span>
                 <span className={`badge badge--role-${each.role}`}>{ROLE_LABELS[each.role]}</span>
               </Link>
+              <ClassMenu info={each} />
             </li>
           ))}
         </ul>

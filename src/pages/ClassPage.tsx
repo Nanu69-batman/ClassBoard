@@ -1,19 +1,19 @@
 import { useCallback, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
 import { toFriendlyError } from "../auth/errors";
 import { AssignmentsTab } from "../components/class/AssignmentsTab";
+import { ClassMenu } from "../components/ClassMenu";
 import { EmptyState } from "../components/EmptyState";
-import { LinkIcon, PlusIcon, SettingsIcon } from "../components/icons";
+import { PlusIcon } from "../components/icons";
 import { PageHero } from "../components/PageHero";
-import { inviteLink } from "../data/classes";
 import { setCompleted, type ClassData } from "../data/classData";
 import { canManage, ROLE_LABELS, type ClassInfo, type Loadable } from "../data/types";
 import { useClassData } from "../data/useClassData";
 import { countAssignments } from "../utils/assignmentStatus";
 import { useAppContext } from "./AppLayout";
-import { ClassManageView, manageLabel } from "./ClassManageView";
+import { ClassManageView } from "./ClassManageView";
 
 /**
  * `/app/:classId` and `/app/:classId/manage/:section`.
@@ -62,7 +62,6 @@ const SECTIONS: { id: Section; label: string }[] = [{ id: "assignments", label: 
 function ClassView({ info }: { info: ClassInfo }) {
   const { user } = useAuth();
   const userId = user?.id ?? "";
-  const navigate = useNavigate();
   const manager = canManage(info.role);
 
   const [section, setSection] = useState<Section>("assignments");
@@ -70,7 +69,6 @@ function ClassView({ info }: { info: ClassInfo }) {
   /** Ticks the person changed that the server has not confirmed yet. */
   const [pending, setPending] = useState<Map<string, boolean>>(new Map());
   const [toggleError, setToggleError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const serverCompleted = data.data?.completedIds;
 
@@ -108,17 +106,6 @@ function ClassView({ info }: { info: ClassInfo }) {
     [isCompleted, userId, setData],
   );
 
-  async function copyInvite() {
-    try {
-      await navigator.clipboard.writeText(inviteLink(info.inviteCode));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // No clipboard access: the settings page shows the link to copy by hand.
-      navigate(`/app/${info.id}/manage/settings`);
-    }
-  }
-
   return (
     <main className="content content--wide">
       <PageHero
@@ -132,20 +119,14 @@ function ClassView({ info }: { info: ClassInfo }) {
         }
         actions={
           <>
-            <button type="button" className="button button--ghost" onClick={() => void copyInvite()}>
-              <LinkIcon size={15} />
-              {copied ? "Link copied" : "Invite"}
-            </button>
-            <Link className="button button--ghost" to={`/app/${info.id}/manage`}>
-              <SettingsIcon size={15} />
-              {manageLabel(info)}
-            </Link>
             {manager && (
               <Link className="button button--primary" to={`/app/${info.id}/manage/assignments?compose=1`}>
                 <PlusIcon size={15} />
                 Post assignment
               </Link>
             )}
+            {/* Invite and settings live behind the dots, as on every class. */}
+            <ClassMenu info={info} className="kebab--boxed" />
           </>
         }
       />

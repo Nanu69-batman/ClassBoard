@@ -3,6 +3,7 @@ import { Link, NavLink, Navigate, useParams, useSearchParams } from "react-route
 
 import { useAuth } from "../auth/AuthProvider";
 import { ManageTab } from "../components/class/ManageTab";
+import { manageLabel } from "../components/ClassMenu";
 import { MembersTab } from "../components/class/MembersTab";
 import { SettingsTab } from "../components/class/SettingsTab";
 import { EmptyState } from "../components/EmptyState";
@@ -14,11 +15,6 @@ import { useClassData } from "../data/useClassData";
 type ManageSection = "assignments" | "members" | "settings";
 
 const SECTION_IDS: readonly ManageSection[] = ["assignments", "members", "settings"];
-
-/** What the button into this page is called: running the class, or just its settings. */
-export function manageLabel(info: ClassInfo): string {
-  return canManage(info.role) ? "Manage class" : "Class settings";
-}
 
 /**
  * `/app/:classId/manage/:section`: everything about running the class, kept off

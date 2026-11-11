@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 
 import { CheckCircleIcon, CheckIcon, ClockIcon, DocumentIcon, PaperclipIcon } from "./icons";
 import type { Assignment } from "../data/types";
@@ -10,9 +10,6 @@ import {
   getRelativeDueText,
   getShortDueText,
 } from "../utils/assignmentStatus";
-
-/** Descriptions longer than this get a show more / show less toggle. */
-const LONG_DESCRIPTION_LENGTH = 150;
 
 const PRIORITY_LABELS: Record<Assignment["priority"], string> = {
   high: "High",
@@ -60,8 +57,19 @@ export function AssignmentCard({
   }, [restoreFocus]);
 
   const status = getAssignmentStatus(assignment, isCompleted);
-  const isLongDescription = assignment.description.length > LONG_DESCRIPTION_LENGTH;
-  const isCollapsed = isLongDescription && !isExpanded;
+  const detailsId = useId();
+
+  /**
+   * A click anywhere on the card opens or closes it, except on the things in it
+   * that do their own job (the tick, the attachment link) or when the click
+   * was the end of selecting text.
+   */
+  function handleCardClick(event: MouseEvent<HTMLElement>) {
+    const target = event.target as Element;
+    if (target.closest("button, a")) return;
+    if (window.getSelection()?.toString()) return;
+    setIsExpanded((value) => !value);
+  }
 
   // A note-based assignment has no date, so the date block has nothing to show
   // and the note goes in the body instead.
@@ -70,7 +78,8 @@ export function AssignmentCard({
   return (
     <article
       id={assignmentAnchor(assignment.id)}
-      className={`row row--${status}`}
+      className={`row row--${status}${isExpanded ? " row--expanded" : ""}`}
+      onClick={handleCardClick}
       // Drives the settle animation only, via a CSS attribute selector. Kept out
       // of the class string so a re-render cannot restart the transition.
       data-just-completed={justCompleted ? "true" : undefined}
@@ -122,23 +131,27 @@ export function AssignmentCard({
           )}
         </p>
 
-        <h3 className="row__title">{assignment.title}</h3>
-
-        {assignment.description && (
-          <p className={`row__description${isCollapsed ? " row__description--clamped" : ""}`}>
-            {assignment.description}
-          </p>
-        )}
-
-        {isLongDescription && (
+        {/*
+          The title is the keyboard way in: a button that opens the card. A
+          pointer can click anywhere on the card instead.
+        */}
+        <h3 className="row__title">
           <button
             type="button"
-            className="link-button"
+            className="row__toggle"
             aria-expanded={isExpanded}
+            aria-controls={detailsId}
             onClick={() => setIsExpanded((value) => !value)}
           >
-            {isExpanded ? "Show less" : "Show more"}
+            {assignment.title}
           </button>
+        </h3>
+
+        {/* Compact: one line of the description. Open: all of it, and the rest below. */}
+        {assignment.description && (
+          <p className={`row__description${isExpanded ? "" : " row__description--clamped"}`}>
+            {assignment.description}
+          </p>
         )}
 
         {!dateParts && !isCompleted && (
@@ -148,18 +161,23 @@ export function AssignmentCard({
           </p>
         )}
 
-        {(assignment.attachment || assignment.postedBy) && (
-          <p className="row__footer">
-            {assignment.attachment && (
-              <a className="row__attachment" href={assignment.attachment} target="_blank" rel="noreferrer">
-                <PaperclipIcon size={13} />
-                {assignment.attachmentName || "Attachment"}
-              </a>
-            )}
-            {/* Who set the work, stamped by the database from their profile. */}
-            {assignment.postedBy && <span className="row__posted-by">Posted by {assignment.postedBy}</span>}
-          </p>
-        )}
+        <div id={detailsId} hidden={!isExpanded}>
+          {(assignment.attachment || assignment.postedBy) && (
+            <p className="row__footer">
+              {assignment.attachment && (
+                <a className="row__attachment" href={assignment.attachment} target="_blank" rel="noreferrer">
+                  <PaperclipIcon size={13} />
+                  {assignment.attachmentName || "Attachment"}
+                </a>
+              )}
+              {/* Who set the work, stamped by the database from their profile. */}
+              {assignment.postedBy && <span className="row__posted-by">Posted by {assignment.postedBy}</span>}
+            </p>
+          )}
+          {dateParts && (
+            <p className="row__posted-by">Due {formatDueDate(assignment.dueDate)}</p>
+          )}
+        </div>
       </div>
 
       <button
