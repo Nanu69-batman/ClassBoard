@@ -470,23 +470,9 @@ select {
   flex: 1 1 20rem;
 }
 
-/* A labelled dropdown, as on the Manage page's visibility filter. */
-.filters__subject {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.filters__label {
-  color: var(--text-soft);
-  font-size: 0.85rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.filters__subject .listbox {
-  flex: 1 1 auto;
-  min-width: 9rem;
+/* Manage → Assignments: the same pair of dropdowns, beside the heading. */
+.filters--manage {
+  flex: 0 1 26rem;
 }
 
 /* ---------------------------------------------------------------- groups -- */
@@ -1873,9 +1859,7 @@ select {
 .class-card {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
   height: 100%;
-  padding: 0 0.5rem 0 0;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -1892,7 +1876,7 @@ select {
   align-items: center;
   gap: 0.95rem;
   align-self: stretch;
-  padding: 1.1rem 0.4rem 1.1rem 1.15rem;
+  padding: 1.1rem 1.15rem;
   border-radius: var(--radius);
   color: inherit;
   text-decoration: none;
@@ -2320,7 +2304,7 @@ a.auth-card__brand {
   font-size: 0.82rem;
 }
 
-/* ------------------------------------------------- board, calendar, upcoming -- */
+/* ---------------------------------------------------------- board, calendar -- */
 
 /* The assignments tab: the list, and the agenda beside it once there is room. */
 .board {
@@ -2505,79 +2489,6 @@ a.calendar__day:hover {
   box-shadow: inset 0 0 0 1px #cbd8bf;
 }
 
-.upcoming {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  margin: 0.8rem 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.upcoming__item {
-  --tone-bg: var(--surface-sunk);
-  --tone: var(--text-muted);
-
-  display: flex;
-  align-items: flex-start;
-  gap: 0.8rem;
-  padding: 0.55rem 0.5rem;
-  margin: 0 -0.5rem;
-  border-radius: var(--radius-sm);
-  color: inherit;
-  text-decoration: none;
-}
-
-.upcoming__item:hover {
-  background-color: var(--surface-sunk);
-}
-
-.upcoming__item--overdue {
-  --tone-bg: var(--red-tint);
-  --tone: var(--red-text);
-}
-
-.upcoming__item--soon {
-  --tone-bg: var(--amber-tint);
-  --tone: var(--amber-text);
-}
-
-.upcoming__icon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 2.35rem;
-  height: 2.35rem;
-  background-color: var(--tone-bg);
-  border-radius: 10px;
-  color: var(--tone);
-}
-
-.upcoming__text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.upcoming__title {
-  font-family: var(--font-serif);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
-.upcoming__meta {
-  color: var(--text-muted);
-  font-size: 0.82rem;
-}
-
-.upcoming__empty {
-  margin-top: 0.6rem;
-  color: var(--text-muted);
-  font-size: 0.88rem;
-}
-
 /* ------------------------------------------------------------ manage page -- */
 
 .back-link {
@@ -2686,16 +2597,6 @@ a.calendar__day:hover {
   color: var(--text);
 }
 
-/* In the class header, sized and outlined like the buttons beside it. */
-.kebab--boxed {
-  width: 2.6rem;
-  height: auto;
-  min-height: 2.4rem;
-  border-color: var(--border-strong);
-  border-radius: var(--radius-sm);
-  color: var(--text-soft);
-}
-
 .menu {
   position: fixed;
   z-index: 60;
@@ -2766,6 +2667,10 @@ a.calendar__day:hover {
 
 .topbar__button:hover {
   background-color: var(--surface-sunk);
+}
+
+.topbar__spacer {
+  width: 2.6rem;
 }
 
 .topbar__brand {

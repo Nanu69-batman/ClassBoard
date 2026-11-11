@@ -1,13 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { toFriendlyError } from "../../auth/errors";
-import {
-  addSubject,
-  createAssignment,
-  setAssignmentActive,
-  setSubjectActive,
-  updateAssignment,
-} from "../../data/assignments";
+import { createAssignment, setAssignmentActive, updateAssignment } from "../../data/assignments";
 import type { ClassData } from "../../data/classData";
 import type { Loadable, ManagedAssignment } from "../../data/types";
 import { formatDueDate, getDueLabel, sortAssignments } from "../../utils/assignmentStatus";
@@ -34,7 +28,9 @@ type Props = {
   onComposeHandled: () => void;
 };
 
-/** Owners and admins: post, edit and archive assignments, and manage subjects. */
+const ALL_SUBJECTS = "all";
+
+/** Owners and admins: post, edit and archive assignments. Subjects have their own tab. */
 export function ManageTab({ classId, data, composeRequested, onComposeHandled }: Props) {
   const [visibility, setVisibility] = useState<Visibility>("active");
   const [editor, setEditor] = useState<Editor>({ mode: "closed" });
@@ -43,7 +39,7 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
   const [notice, setNotice] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const [subjectName, setSubjectName] = useState("");
+  const [subject, setSubject] = useState(ALL_SUBJECTS);
 
   useEffect(() => {
     if (!composeRequested) return;
@@ -64,8 +60,20 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
 
   const visible = useMemo(() => {
     const source = visibility === "active" ? active : visibility === "archived" ? archived : all;
-    return [...source].sort(sortAssignments);
-  }, [visibility, active, archived, all]);
+    return source.filter((each) => subject === ALL_SUBJECTS || each.subject === subject).sort(sortAssignments);
+  }, [visibility, subject, active, archived, all]);
+
+  // Every subject that has work posted under it, archived subjects included,
+  // so old assignments can still be found.
+  const subjectOptions: ListboxOption[] = useMemo(() => {
+    const names = [...new Set(all.map((each) => each.subject))].sort((a, b) => a.localeCompare(b));
+    return [{ value: ALL_SUBJECTS, label: "All subjects" }, ...names.map((name) => ({ value: name, label: name }))];
+  }, [all]);
+
+  // A subject whose last assignment went away: fall back to all of them.
+  useEffect(() => {
+    if (subject !== ALL_SUBJECTS && !subjectOptions.some((each) => each.value === subject)) setSubject(ALL_SUBJECTS);
+  }, [subject, subjectOptions]);
 
   function closeEditor() {
     setEditor({ mode: "closed" });
@@ -106,20 +114,6 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
     );
   }
 
-  function handleAddSubject(event: FormEvent) {
-    event.preventDefault();
-    const name = subjectName.trim();
-    if (!name) return;
-    void runWrite(
-      async () => {
-        await addSubject(classId, name);
-        setSubjectName("");
-      },
-      `Subject "${name}" added.`,
-      false,
-    );
-  }
-
   return (
     <>
       {notice && (
@@ -151,16 +145,20 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
       <section className="section">
         <div className="toolbar">
           <h2 className="toolbar__title">Assignments</h2>
-          <div className="filters__subject">
-            <label className="filters__label" htmlFor="visibility-filter">
-              Show
-            </label>
+          <div className="filters filters--manage">
             <Listbox
               id="visibility-filter"
               options={VISIBILITY_OPTIONS}
               value={visibility}
               onChange={(value) => setVisibility(value as Visibility)}
-              ariaLabel="Filter assignments by status"
+              ariaLabel="Show active or archived assignments"
+            />
+            <Listbox
+              id="manage-subject-filter"
+              options={subjectOptions}
+              value={subject}
+              onChange={setSubject}
+              ariaLabel="Filter by subject"
             />
           </div>
         </div>
@@ -178,11 +176,19 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
 
         {data.status === "ready" && visible.length === 0 && (
           <EmptyState
-            title={visibility === "archived" ? "Nothing archived" : "No assignments yet"}
+            title={
+              subject !== ALL_SUBJECTS
+                ? `Nothing here for ${subject}`
+                : visibility === "archived"
+                  ? "Nothing archived"
+                  : "No assignments yet"
+            }
             message={
-              visibility === "archived"
-                ? "Archived assignments show up here."
-                : "Post your first assignment and everyone in the class sees it straight away."
+              subject !== ALL_SUBJECTS
+                ? "Try another subject, or show all of them."
+                : visibility === "archived"
+                  ? "Archived assignments show up here."
+                  : "Post your first assignment and everyone in the class sees it straight away."
             }
           />
         )}
@@ -245,59 +251,6 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
         )}
       </section>
 
-      <section className="section">
-        <div className="toolbar">
-          <h2 className="toolbar__title">Subjects</h2>
-        </div>
-
-        <form className="inline-form" onSubmit={handleAddSubject}>
-          <label className="sr-only" htmlFor="new-subject">
-            New subject name
-          </label>
-          <input
-            id="new-subject"
-            className="input"
-            placeholder="Add a subject, e.g. Physics"
-            maxLength={120}
-            value={subjectName}
-            onChange={(event) => setSubjectName(event.target.value)}
-          />
-          <button type="submit" className="button button--primary" disabled={isSaving || !subjectName.trim()}>
-            Add
-          </button>
-        </form>
-
-        {subjects.length > 0 && (
-          <ul className="record-list">
-            {subjects.map((subject) => (
-              <li key={subject.id} className={`record${subject.active ? "" : " record--archived"}`}>
-                <div className="record__body">
-                  <p className="record__title">
-                    {subject.name}
-                    {!subject.active && <span className="badge badge--archived">Archived</span>}
-                  </p>
-                </div>
-                <p className="record__aside">
-                  <button
-                    type="button"
-                    className="link-button"
-                    disabled={isSaving}
-                    onClick={() =>
-                      void runWrite(
-                        () => setSubjectActive(subject.id, !subject.active),
-                        subject.active ? `"${subject.name}" archived.` : `"${subject.name}" restored.`,
-                        false,
-                      )
-                    }
-                  >
-                    {subject.active ? "Archive" : "Restore"}
-                  </button>
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </>
   );
 }

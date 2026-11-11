@@ -4,7 +4,6 @@ import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { toFriendlyError } from "../auth/errors";
 import { AssignmentsTab } from "../components/class/AssignmentsTab";
-import { ClassMenu } from "../components/ClassMenu";
 import { EmptyState } from "../components/EmptyState";
 import { PlusIcon } from "../components/icons";
 import { PageHero } from "../components/PageHero";
@@ -118,16 +117,12 @@ function ClassView({ info }: { info: ClassInfo }) {
           </>
         }
         actions={
-          <>
-            {manager && (
-              <Link className="button button--primary" to={`/app/${info.id}/manage/assignments?compose=1`}>
-                <PlusIcon size={15} />
-                Post assignment
-              </Link>
-            )}
-            {/* Invite and settings live behind the dots, as on every class. */}
-            <ClassMenu info={info} className="kebab--boxed" />
-          </>
+          manager && (
+            <Link className="button button--primary" to={`/app/${info.id}/manage/assignments?compose=1`}>
+              <PlusIcon size={15} />
+              Post assignment
+            </Link>
+          )
         }
       />
 

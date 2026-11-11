@@ -203,9 +203,7 @@ export function AppLayout() {
           <NavLink to="/app" end className="topbar__brand" aria-label="Classboard home">
             <Brand size={20} />
           </NavLink>
-          <NavLink to="/app/account" className="topbar__button" aria-label="Your account">
-            <Avatar name={displayName} size="sm" />
-          </NavLink>
+          <span className="topbar__spacer" aria-hidden="true" />
         </header>
 
         <Outlet context={context} />

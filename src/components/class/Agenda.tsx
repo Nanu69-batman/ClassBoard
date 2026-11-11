@@ -3,27 +3,24 @@ import { useId, useMemo, useState } from "react";
 import type { Assignment } from "../../data/types";
 import {
   getAssignmentStatus,
-  getDaysUntilDue,
-  getShortDueText,
   sortAssignments,
   type AssignmentStatus,
 } from "../../utils/assignmentStatus";
 import { assignmentAnchor } from "../AssignmentCard";
-import { ChevronLeftIcon, ChevronRightIcon, DocumentIcon } from "../icons";
+import { ChevronLeftIcon, ChevronRightIcon } from "../icons";
 
 type Props = {
   assignments: Assignment[];
   isCompleted: (id: string) => boolean;
-  /** Called when a day or an upcoming item is followed, e.g. to close the sheet it sits in. */
+  /** Called when a day is followed, e.g. to close the sheet it sits in. */
   onPick?: () => void;
 };
 
-/** The side column of the assignments tab: a month of due dates, then what's next. */
+/** The side column of the assignments tab: a month of due dates. */
 export function Agenda({ assignments, isCompleted, onPick, className = "agenda" }: Props & { className?: string }) {
   return (
     <aside className={className} aria-label="Due dates">
       <MonthCalendar assignments={assignments} isCompleted={isCompleted} onPick={onPick} />
-      <UpcomingList assignments={assignments} isCompleted={isCompleted} onPick={onPick} />
     </aside>
   );
 }
@@ -194,65 +191,6 @@ function MonthCalendar({ assignments, isCompleted, onPick }: Props) {
         <li className="calendar__key calendar__key--soon">Due soon</li>
         <li className="calendar__key calendar__key--upcoming">Later</li>
       </ul>
-    </section>
-  );
-}
-
-/* ---------------------------------------------------------------- upcoming -- */
-
-const UPCOMING_LIMIT = 4;
-
-/** "Tomorrow", "2 days late", or a plain date once it's more than a couple of days off. */
-function whenText(dueDate: string): string {
-  const days = getDaysUntilDue(dueDate);
-  if (days !== null && days > 2) {
-    const [y, m, d] = dueDate.split("-").map(Number);
-    return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  }
-  return getShortDueText(dueDate);
-}
-
-function UpcomingList({ assignments, isCompleted, onPick }: Props) {
-  const titleId = useId();
-  const next = useMemo(
-    () =>
-      assignments
-        .filter((each) => each.dueDate && !isCompleted(each.id))
-        .sort(sortAssignments)
-        .slice(0, UPCOMING_LIMIT),
-    [assignments, isCompleted],
-  );
-
-  return (
-    <section className="side-card" aria-labelledby={titleId}>
-      <h2 className="side-card__title" id={titleId}>
-        Upcoming
-      </h2>
-
-      {next.length === 0 ? (
-        <p className="upcoming__empty">Nothing with a date is pending.</p>
-      ) : (
-        <ul className="upcoming">
-          {next.map((each) => {
-            const tone = toneFor(getAssignmentStatus(each, false));
-            return (
-              <li key={each.id}>
-                <a className={`upcoming__item upcoming__item--${tone}`} href={`#${assignmentAnchor(each.id)}`} onClick={onPick}>
-                  <span className="upcoming__icon" aria-hidden="true">
-                    <DocumentIcon size={18} />
-                  </span>
-                  <span className="upcoming__text">
-                    <span className="upcoming__title">{each.title}</span>
-                    <span className="upcoming__meta">
-                      {whenText(each.dueDate)} · {each.subject}
-                    </span>
-                  </span>
-                </a>
-              </li>
-            );
-          })}
-        </ul>
-      )}
     </section>
   );
 }

@@ -6,21 +6,25 @@ import { ManageTab } from "../components/class/ManageTab";
 import { manageLabel } from "../components/ClassMenu";
 import { MembersTab } from "../components/class/MembersTab";
 import { SettingsTab } from "../components/class/SettingsTab";
+import { SubjectsTab } from "../components/class/SubjectsTab";
 import { EmptyState } from "../components/EmptyState";
-import { ArrowLeftIcon, DocumentIcon, SettingsIcon, UsersIcon } from "../components/icons";
+import { ArrowLeftIcon, DocumentIcon, LeafIcon, SettingsIcon, UsersIcon } from "../components/icons";
 import { PageHero } from "../components/PageHero";
 import { canManage, type ClassInfo } from "../data/types";
 import { useClassData } from "../data/useClassData";
 
-type ManageSection = "assignments" | "members" | "settings";
+type ManageSection = "assignments" | "subjects" | "members" | "settings";
 
-const SECTION_IDS: readonly ManageSection[] = ["assignments", "members", "settings"];
+const SECTION_IDS: readonly ManageSection[] = ["assignments", "subjects", "members", "settings"];
+
+/** Sections only owners and admins can open. */
+const MANAGER_ONLY: readonly ManageSection[] = ["assignments", "subjects"];
 
 /**
  * `/app/:classId/manage/:section`: everything about running the class, kept off
  * the class page so that page can be about the work alone.
  *
- * Owners and admins get Assignments (post, edit, archive, subjects); everyone
+ * Owners and admins get Assignments (post, edit, archive) and Subjects; everyone
  * gets Members and Settings (the invite link, and leaving).
  */
 export function ClassManageView({ info }: { info: ClassInfo }) {
@@ -51,15 +55,20 @@ export function ClassManageView({ info }: { info: ClassInfo }) {
   const fallback: ManageSection = manager ? "assignments" : "members";
   const section = SECTION_IDS.find((each) => each === rawSection);
 
-  // No section, an unknown one, or Assignments for someone who can't post
+  // No section, an unknown one, or a manager-only one for someone who can't post
   // (including after a demotion while it's open).
-  if (!section || (section === "assignments" && !manager)) {
+  if (!section || (MANAGER_ONLY.includes(section) && !manager)) {
     return <Navigate to={`${base}/${fallback}`} replace />;
   }
 
   const memberCount = data.data ? ` · ${data.data.members.length}` : "";
   const nav = [
-    ...(manager ? [{ id: "assignments" as const, label: "Assignments", icon: DocumentIcon }] : []),
+    ...(manager
+      ? [
+          { id: "assignments" as const, label: "Assignments", icon: DocumentIcon },
+          { id: "subjects" as const, label: "Subjects", icon: LeafIcon },
+        ]
+      : []),
     { id: "members" as const, label: `Members${memberCount}`, icon: UsersIcon },
     { id: "settings" as const, label: "Settings", icon: SettingsIcon },
   ];
@@ -104,6 +113,8 @@ export function ClassManageView({ info }: { info: ClassInfo }) {
               onComposeHandled={onComposeHandled}
             />
           )}
+
+          {section === "subjects" && data.status !== "error" && <SubjectsTab classId={info.id} data={data} />}
 
           {section === "members" && data.status !== "error" && (
             <MembersTab info={info} members={data.data?.members ?? null} />
