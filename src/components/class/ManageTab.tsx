@@ -9,6 +9,7 @@ import { AttachmentLinks } from "../AttachmentLinks";
 import { EmptyState } from "../EmptyState";
 import { PlusIcon } from "../icons";
 import { Listbox, type ListboxOption } from "../Listbox";
+import { cssVar, fallbackColor, subjectColor } from "../../utils/subjectColor";
 import { AssignmentDialog } from "./AssignmentDialog";
 
 type Visibility = "active" | "archived" | "all";
@@ -47,6 +48,29 @@ export function ManageTab({ classId, data }: Props) {
     const source = visibility === "active" ? active : visibility === "archived" ? archived : all;
     return source.filter((each) => subject === ALL_SUBJECTS || each.subject === subject).sort(sortAssignments);
   }, [visibility, subject, active, archived, all]);
+
+  // One group per subject, alphabetical; each in date order.
+  const groups = useMemo(() => {
+    const byId = new Map(subjects.map((each) => [each.id, each]));
+    const map = new Map<string, { key: string; name: string; teacher: string; color: string; items: ManagedAssignment[] }>();
+    for (const assignment of visible) {
+      const key = assignment.subjectId || assignment.subject;
+      const info = byId.get(assignment.subjectId);
+      let group = map.get(key);
+      if (!group) {
+        group = {
+          key,
+          name: info?.name ?? assignment.subject,
+          teacher: info?.teacher ?? "",
+          color: info ? subjectColor(info) : fallbackColor(assignment.subject),
+          items: [],
+        };
+        map.set(key, group);
+      }
+      group.items.push(assignment);
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [visible, subjects]);
 
   // Every subject that has work posted under it, archived subjects included,
   // so old assignments can still be found.
@@ -156,52 +180,73 @@ export function ManageTab({ classId, data }: Props) {
           />
         )}
 
-        {visible.length > 0 && (
-          <ul className="record-list">
-            {visible.map((assignment) => (
-              <li key={assignment.id} className={`record${assignment.active ? "" : " record--archived"}`}>
-                <div className="record__body">
-                  <p className="record__meta">
-                    {assignment.subject}
-                    {!assignment.active && <span className="badge badge--archived">Archived</span>}
-                  </p>
-                  <p className="record__title">{assignment.title}</p>
-                  {assignment.description && <p className="record__description">{assignment.description}</p>}
-                  <AttachmentLinks files={assignment.attachments} />
-                </div>
+        {groups.length > 0 && (
+          <div className="subject-groups">
+            {groups.map((group) => (
+              <section
+                key={group.key}
+                className="subject-group"
+                style={cssVar("--subject", group.color)}
+                aria-labelledby={`group-${group.key}`}
+              >
+                <header className="subject-group__head">
+                  <span className="subject-swatch" aria-hidden="true" />
+                  <span className="subject-group__titles">
+                    <h3 className="subject-group__name" id={`group-${group.key}`}>
+                      {group.name}
+                    </h3>
+                    {group.teacher && <span className="subject-group__teacher">{group.teacher}</span>}
+                  </span>
+                  <span className="subject-group__count">{group.items.length}</span>
+                </header>
 
-                <p className="record__aside">
-                  {assignment.priority !== "none" && (
-                    <span className={`badge badge--priority-${assignment.priority}`}>{assignment.priority}</span>
-                  )}
-                  <span className="record__date">
-                    {/* Archived work shows the plain date, not "Overdue by…". */}
-                    {assignment.active || !assignment.dueDate
-                      ? getDueLabel(assignment)
-                      : formatDueDate(assignment.dueDate)}
-                  </span>
-                  <span className="record__actions">
-                    <button
-                      type="button"
-                      className="link-button"
-                      disabled={isSaving}
-                      onClick={() => openEditor(assignment)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="link-button"
-                      disabled={isSaving}
-                      onClick={() => handleToggleActive(assignment)}
-                    >
-                      {assignment.active ? "Archive" : "Restore"}
-                    </button>
-                  </span>
-                </p>
-              </li>
+                <ul className="record-list">
+                  {group.items.map((assignment) => (
+                    <li key={assignment.id} className={`record${assignment.active ? "" : " record--archived"}`}>
+                      <div className="record__body">
+                        <p className="record__title">
+                          {assignment.title}
+                          {!assignment.active && <span className="badge badge--archived">Archived</span>}
+                        </p>
+                        {assignment.description && <p className="record__description">{assignment.description}</p>}
+                        <AttachmentLinks files={assignment.attachments} />
+                      </div>
+
+                      <div className="record__aside">
+                        <span className="record__date">
+                          {assignment.priority !== "none" && (
+                            <span className={`badge badge--priority-${assignment.priority}`}>{assignment.priority}</span>
+                          )}
+                          {/* Archived work shows the plain date, not "Overdue by…". */}
+                          {assignment.active || !assignment.dueDate
+                            ? getDueLabel(assignment)
+                            : formatDueDate(assignment.dueDate)}
+                        </span>
+                        <span className="record__actions">
+                          <button
+                            type="button"
+                            className="link-button"
+                            disabled={isSaving}
+                            onClick={() => openEditor(assignment)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="link-button"
+                            disabled={isSaving}
+                            onClick={() => handleToggleActive(assignment)}
+                          >
+                            {assignment.active ? "Archive" : "Restore"}
+                          </button>
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 

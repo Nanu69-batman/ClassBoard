@@ -136,12 +136,12 @@ export async function setAssignmentActive(assignmentId: string, active: boolean)
   if (error) throw error;
 }
 
-export type SubjectDraft = { name: string; teacher: string };
+export type SubjectDraft = { name: string; teacher: string; color: string };
 
 export async function addSubject(classId: string, draft: SubjectDraft): Promise<void> {
   const { error } = await supabase
     .from("subjects")
-    .insert({ class_id: classId, name: draft.name.trim(), teacher: draft.teacher.trim() });
+    .insert({ class_id: classId, name: draft.name.trim(), teacher: draft.teacher.trim(), color: draft.color });
   if (error) throw error;
 }
 
@@ -149,7 +149,7 @@ export async function addSubject(classId: string, draft: SubjectDraft): Promise<
 export async function updateSubject(subjectId: string, draft: SubjectDraft): Promise<void> {
   const { error } = await supabase
     .from("subjects")
-    .update({ name: draft.name.trim(), teacher: draft.teacher.trim() })
+    .update({ name: draft.name.trim(), teacher: draft.teacher.trim(), color: draft.color })
     .eq("id", subjectId);
   if (error) throw error;
 }

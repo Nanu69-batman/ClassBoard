@@ -44,6 +44,8 @@ export type Assignment = {
   attachments: AttachedFile[];
   /** The subject's teacher, when one is set. */
   teacher?: string;
+  /** The subject's colour, `#rrggbb`. */
+  subjectColor?: string;
   /** Display name of whoever posted it. */
   postedBy?: string | null;
 };
@@ -80,6 +82,8 @@ export type SubjectInfo = {
   name: string;
   /** Who teaches it. Empty when not set. */
   teacher: string;
+  /** `#rrggbb`, or empty when none was chosen (see `subjectColor()`). */
+  color: string;
   active: boolean;
 };
 

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 
+import { cssVar, fallbackColor } from "../utils/subjectColor";
 import { AttachmentLinks } from "./AttachmentLinks";
 import { CheckCircleIcon, CheckIcon, ClockIcon, DocumentIcon } from "./icons";
 import type { Assignment } from "../data/types";
@@ -119,7 +120,12 @@ export function AssignmentCard({
 
       <div className="row__body">
         <p className="row__meta">
-          <span className="row__subject">{assignment.subject}</span>
+          <span
+            className="row__subject subject-chip"
+            style={cssVar("--subject", assignment.subjectColor ?? fallbackColor(assignment.subject))}
+          >
+            {assignment.subject}
+          </span>
           {/*
             "No priority" is not printed. A priority nobody set is not
             information, and labelling the absence would put noise on most rows.

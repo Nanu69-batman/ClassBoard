@@ -26,6 +26,7 @@ bucket holds the files.
    completions, the RLS policies and the private `attachments` bucket.
    `20261112000000_subject_teachers_and_files.sql` then adds a teacher to each
    subject and lets an assignment carry several files.
+   `20261112000100_subject_colors.sql` gives each subject a colour.
 2. **Point the app at the project.** Put the Project URL and the **anon** key
    (Project Settings → API) in `src/lib/supabase.ts`. Both are public by design
    and safe to commit.

@@ -10,6 +10,7 @@ import { supabase } from "../lib/supabase";
 import { signedUrls } from "./attachments";
 import { watchTopic } from "./realtime";
 import { ASSIGNMENT_COLUMNS, SUBJECT_COLUMNS, attachmentPathsOf, toAssignment, toMember, toSubject } from "./rows";
+import { fallbackColor, subjectColor } from "../utils/subjectColor";
 import type { Loadable, ManagedAssignment, Member, SubjectInfo } from "./types";
 
 export type ClassData = {
@@ -60,7 +61,7 @@ export function subscribeToClassData(
     if (closed || ticket !== latest) return;
 
     const subjectList = (subjects.data ?? []).map(toSubject);
-    const teachers = new Map(subjectList.filter((each) => each.teacher).map((each) => [each.id, each.teacher]));
+    const byId = new Map(subjectList.map((each) => [each.id, each]));
 
     onChange({
       status: "ready",
@@ -68,8 +69,12 @@ export function subscribeToClassData(
       data: {
         assignments: rows.map((row) => {
           const assignment = toAssignment(row, urls);
-          const teacher = teachers.get(assignment.subjectId);
-          return teacher ? { ...assignment, teacher } : assignment;
+          const subject = byId.get(assignment.subjectId);
+          return {
+            ...assignment,
+            teacher: subject?.teacher || undefined,
+            subjectColor: subject ? subjectColor(subject) : fallbackColor(assignment.subject),
+          };
         }),
         subjects: subjectList,
         members: (members.data ?? []).map((row) => toMember(row as Record<string, unknown>)),

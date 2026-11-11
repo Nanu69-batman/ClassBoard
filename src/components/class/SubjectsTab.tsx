@@ -6,6 +6,7 @@ import { setSubjectActive } from "../../data/assignments";
 import type { ClassData } from "../../data/classData";
 import type { Loadable, SubjectInfo } from "../../data/types";
 import { EmptyState } from "../EmptyState";
+import { cssVar, subjectColor } from "../../utils/subjectColor";
 import { PlusIcon } from "../icons";
 import { SubjectDialog } from "./SubjectDialog";
 
@@ -106,7 +107,8 @@ export function SubjectsTab({ classId, data }: Props) {
         <ul className="record-list">
           {subjects.map((subject) => (
             <li key={subject.id} className={`record${subject.active ? "" : " record--archived"}`}>
-              <div className="record__body">
+              <span className="subject-swatch" style={cssVar("--subject", subjectColor(subject))} aria-hidden="true" />
+              <div className="record__body record__body--grow">
                 <p className="record__title">
                   {subject.name}
                   {!subject.active && <span className="badge badge--archived">Archived</span>}
@@ -144,6 +146,7 @@ export function SubjectsTab({ classId, data }: Props) {
         open={editor.open}
         classId={classId}
         subject={editor.open ? editor.subject : null}
+        subjects={subjects}
         onClose={() => setEditor({ open: false })}
         onSaved={setNotice}
       />

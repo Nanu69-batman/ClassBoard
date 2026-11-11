@@ -23,7 +23,7 @@ const ROLES: MemberRole[] = ["owner", "admin", "member"];
 export const ASSIGNMENT_COLUMNS =
   "id, class_id, subject_id, subject_name, title, description, due_date, due_note, priority, attachments, posted_by_name, active";
 
-export const SUBJECT_COLUMNS = "id, class_id, name, teacher, active";
+export const SUBJECT_COLUMNS = "id, class_id, name, teacher, color, active";
 
 type Row = Record<string, unknown>;
 
@@ -78,6 +78,7 @@ export function toSubject(row: Row): SubjectInfo {
     classId: toText(row.class_id),
     name: toText(row.name, id),
     teacher: toText(row.teacher).trim(),
+    color: toText(row.color),
     active: row.active === true,
   };
 }

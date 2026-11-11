@@ -475,6 +475,247 @@ select {
   flex: 0 1 26rem;
 }
 
+/* ------------------------------------------------------- subject colours -- */
+
+/* The subject's name with its colour: a dot on a light tint of it. */
+.subject-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.12rem 0.55rem 0.12rem 0.45rem;
+  background-color: color-mix(in srgb, var(--subject) 14%, transparent);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.subject-chip::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: var(--subject);
+  border-radius: 50%;
+}
+
+/* On a card the chip sits in the small-caps meta line. */
+.row__meta .subject-chip {
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+}
+
+.subject-swatch {
+  flex: 0 0 auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  background-color: var(--subject);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.record > .subject-swatch {
+  margin-top: 0.45rem;
+}
+
+.record__body--grow {
+  flex: 1 1 auto;
+}
+
+/* The colour picker: palette swatches, then "any colour". */
+.swatches-field {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.swatches-field legend {
+  margin-bottom: 0.4rem;
+  padding: 0;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.swatch {
+  position: relative;
+  display: inline-grid;
+  cursor: pointer;
+}
+
+.swatch__input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.swatch__dot {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  background-color: var(--swatch);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1;
+  transition: box-shadow 120ms ease, transform 120ms ease;
+}
+
+.swatch__dot svg {
+  opacity: 0;
+}
+
+.swatch:hover .swatch__dot {
+  transform: scale(1.08);
+}
+
+.swatch__input:checked + .swatch__dot,
+.swatch--picked .swatch__dot {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--swatch);
+}
+
+.swatch__input:checked + .swatch__dot svg,
+.swatch--picked .swatch__dot svg {
+  opacity: 1;
+}
+
+.swatch__input:focus-visible + .swatch__dot,
+.swatch__picker:focus-visible + .swatch__dot {
+  outline: 2px solid var(--text);
+  outline-offset: 4px;
+}
+
+/* Not picked yet: a colour wheel, inviting a custom colour. */
+.swatch--custom:not(.swatch--picked) .swatch__dot {
+  background: conic-gradient(#e0565b, #e8b04a, #8cc56a, #4bb3c6, #6a6fd6, #c262b8, #e0565b);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.swatch__picker {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.swatches__preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.7rem;
+  margin-top: 0.75rem;
+}
+
+/* Manage → Assignments: one card per subject, in two columns where there's room. */
+.subject-groups {
+  columns: 2 20rem;
+  column-gap: 1rem;
+  margin-top: 0.25rem;
+}
+
+.subject-group {
+  display: flow-root;
+  break-inside: avoid;
+  margin-bottom: 1rem;
+  padding: 0.85rem 0.85rem 0.9rem;
+  background-color: color-mix(in srgb, var(--subject) 5%, var(--surface));
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--subject);
+  border-radius: var(--radius);
+}
+
+.subject-group__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0.1rem 0.75rem;
+}
+
+.subject-group__titles {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.subject-group__name {
+  font-size: 1.15rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.subject-group__teacher {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.subject-group__count {
+  flex: 0 0 auto;
+  min-width: 1.6rem;
+  padding: 0.1rem 0.5rem;
+  background-color: color-mix(in srgb, var(--subject) 16%, transparent);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Inside a group the column is narrow: title on top, date and actions below. */
+.subject-group .record {
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 0.9rem;
+  box-shadow: none;
+}
+
+.subject-group .record__body {
+  width: 100%;
+}
+
+.subject-group .record__description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.subject-group .record__aside {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem 0.75rem;
+  width: 100%;
+  white-space: normal;
+}
+
+.subject-group .record__date {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.subject-group .record__actions {
+  margin-top: 0;
+}
+
 /* ---------------------------------------------------------------- groups -- */
 
 .groups {
@@ -3068,22 +3309,26 @@ a.calendar__day:hover {
 /* Small phones: a tighter card. */
 @media (max-width: 29.99rem) {
   .row {
-    grid-template-columns: 3.4rem minmax(0, 1fr) auto;
-    column-gap: 0.7rem;
-    padding: 0.85rem 0.75rem 0.85rem 0.5rem;
+    grid-template-columns: 4.4rem minmax(0, 1fr) auto;
+    column-gap: 0.75rem;
+    padding: 0.9rem 0.75rem 0.9rem 0.5rem;
   }
 
   .row__date {
-    padding-right: 0.5rem;
+    padding-right: 0.6rem;
   }
 
   .row__date-day {
-    font-size: 1.5rem;
+    margin: 0.15rem 0 0.3rem;
+    font-size: 1.55rem;
   }
 
+  /* Wraps to two short lines ("3 days / late") rather than squeezing onto one. */
   .row__date-relative {
-    font-size: 0.58rem;
-    letter-spacing: 0.04em;
+    max-width: 100%;
+    font-size: 0.6rem;
+    letter-spacing: 0.03em;
+    line-height: 1.2;
     white-space: normal;
   }
 
