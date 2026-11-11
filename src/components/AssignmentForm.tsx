@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
 import { ACCEPTED_EXTENSIONS, validateAttachment } from "../data/attachments";
-import type { AttachmentChange } from "../data/assignments";
+import { MAX_FILES, type StoredFile } from "../data/assignments";
 import type { ManagedAssignment, Priority, SubjectInfo } from "../data/types";
 
+import { CloseIcon, DocumentIcon, UploadIcon } from "./icons";
 import { Listbox, type ListboxOption } from "./Listbox";
 
 /**
@@ -16,7 +17,7 @@ import { Listbox, type ListboxOption } from "./Listbox";
  *
  * Subject, title, description, the due date *or* the note, priority.
  * `updateAssignment` writes exactly these and `updatedAt`. It never sends
- * `createdBy`, `createdAt`, `contactEmail` or an attachment, so editing cannot
+ * `createdBy`, `createdAt` or `contactEmail`, so editing cannot
  * quietly drop them (§17: "do not silently overwrite unrelated fields").
  *
  * ## A due date, or a note instead of one
@@ -33,11 +34,12 @@ import { Listbox, type ListboxOption } from "./Listbox";
  * with a date has `dueNote: null`, so a card never has to choose between them,
  * and no card can show a date and a note at once.
  *
- * ## One optional file
+ * ## Files
  *
- * PDF, PowerPoint, Word, Excel, text or an image, up to 25 MB. The form only
- * records what should happen to the file — keep, remove or replace — and the
- * repository does the upload, so a cancelled form never leaves a file behind.
+ * Up to ten: PDF, PowerPoint, Word, Excel, text or images, 25 MB each. Picked
+ * with the button or dropped onto it. The form only records which existing
+ * files to keep and which new ones to add; the repository does the upload, so
+ * a cancelled form never leaves a file behind.
  */
 
 /** The note written when a CR chooses "no deadline" and types nothing. */
@@ -59,7 +61,10 @@ type Draft = {
   dueDate: string;
   dueNote: string;
   priority: Priority;
-  attachment: AttachmentChange;
+  /** Files already on the assignment that stay. */
+  keep: StoredFile[];
+  /** Files picked in this form, uploaded on save. */
+  add: File[];
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -70,7 +75,8 @@ const EMPTY_DRAFT: Draft = {
   dueDate: "",
   dueNote: DEFAULT_DUE_NOTE,
   priority: "none",
-  attachment: { kind: "keep" },
+  keep: [],
+  add: [],
 };
 
 /** The native `max` for a date input is fine, but cap the far future too. */
@@ -141,7 +147,8 @@ export function AssignmentForm({
       dueDate: assignment.dueDate,
       dueNote: assignment.dueNote ?? DEFAULT_DUE_NOTE,
       priority: assignment.priority,
-      attachment: { kind: "keep" },
+      keep: assignment.attachments.map(({ path, name }) => ({ path, name })),
+      add: [],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignment?.id]);
@@ -158,25 +165,40 @@ export function AssignmentForm({
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
-  function handleFileChosen(file: File | undefined) {
-    if (!file) return;
-    const problem = validateAttachment(file);
-    if (problem) {
-      setLocalError(problem);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-    setLocalError(null);
-    update("attachment", { kind: "replace", file });
-  }
+  const [isDragging, setIsDragging] = useState(false);
 
-  function undoAttachment() {
-    // Clear the input too, or choosing the same file again fires no change.
+  function addFiles(list: FileList | null) {
+    const picked = [...(list ?? [])];
     if (fileInputRef.current) fileInputRef.current.value = "";
-    update("attachment", { kind: "keep" });
+    if (picked.length === 0) return;
+
+    const problems: string[] = [];
+    const next = [...draft.add];
+    for (const file of picked) {
+      const problem = validateAttachment(file);
+      if (problem) {
+        problems.push(problem);
+        continue;
+      }
+      // The same file picked twice is added once.
+      const duplicate = next.some(
+        (each) => each.name === file.name && each.size === file.size && each.lastModified === file.lastModified,
+      );
+      if (!duplicate) next.push(file);
+    }
+
+    const room = MAX_FILES - draft.keep.length;
+    if (next.length > room) {
+      problems.push(`An assignment can have up to ${MAX_FILES} files.`);
+      next.length = Math.max(0, room);
+    }
+
+    setLocalError(problems.length > 0 ? problems.join(" ") : null);
+    update("add", next);
   }
 
-  const existingFile = assignment?.attachment ? assignment.attachmentName ?? "Attachment" : null;
+  const fileCount = draft.keep.length + draft.add.length;
+  const existingUrls = new Map((assignment?.attachments ?? []).map((each) => [each.path, each.url]));
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -206,7 +228,8 @@ export function AssignmentForm({
       dueDate: draft.usesNote ? "" : draft.dueDate,
       dueNote: draft.usesNote ? draft.dueNote.trim() || DEFAULT_DUE_NOTE : "",
       priority: draft.priority,
-      attachment: draft.attachment,
+      keep: draft.keep,
+      add: draft.add,
     });
   }
 
@@ -335,73 +358,97 @@ export function AssignmentForm({
         </div>
 
         <div className="field field--wide">
-          <label className="field__label" htmlFor={`${fieldId}-file`}>
-            Attachment <span className="field__optional">optional</span>
-          </label>
+          <span className="field__label" id={`${fieldId}-files-label`}>
+            Files <span className="field__optional">optional</span>
+          </span>
 
-          {draft.attachment.kind === "replace" ? (
-            <p className="field__file">
-              <span className="field__file-name">{draft.attachment.file.name}</span>
-              <button
-                type="button"
-                className="link-button"
-                onClick={undoAttachment}
-              >
-                {existingFile ? "Keep the current file" : "Remove"}
-              </button>
-            </p>
-          ) : draft.attachment.kind === "remove" ? (
-            <p className="field__file">
-              <span className="field__file-name">{existingFile} will be removed</span>
-              <button
-                type="button"
-                className="link-button"
-                onClick={undoAttachment}
-              >
-                Undo
-              </button>
-            </p>
-          ) : existingFile ? (
-            <p className="field__file">
-              <a
-                className="field__file-name"
-                href={assignment?.attachment ?? undefined}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {existingFile}
-              </a>
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Replace
-              </button>
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => update("attachment", { kind: "remove" })}
-              >
-                Remove
-              </button>
-            </p>
-          ) : null}
+          {fileCount > 0 && (
+            <ul className="files" aria-labelledby={`${fieldId}-files-label`}>
+              {draft.keep.map((file) => {
+                const url = existingUrls.get(file.path);
+                return (
+                  <li key={file.path} className="files__item">
+                    <span className="files__icon" aria-hidden="true">
+                      <DocumentIcon size={16} />
+                    </span>
+                    {url ? (
+                      <a className="files__name" href={url} target="_blank" rel="noreferrer">
+                        {file.name}
+                      </a>
+                    ) : (
+                      <span className="files__name">{file.name}</span>
+                    )}
+                    <button
+                      type="button"
+                      className="files__remove"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() => update("keep", draft.keep.filter((each) => each.path !== file.path))}
+                    >
+                      <CloseIcon size={16} />
+                    </button>
+                  </li>
+                );
+              })}
+              {draft.add.map((file, index) => (
+                <li key={`${file.name}-${file.size}-${file.lastModified}`} className="files__item">
+                  <span className="files__icon files__icon--new" aria-hidden="true">
+                    <DocumentIcon size={16} />
+                  </span>
+                  <span className="files__name">{file.name}</span>
+                  <span className="files__size">{formatSize(file.size)}</span>
+                  <button
+                    type="button"
+                    className="files__remove"
+                    aria-label={`Remove ${file.name}`}
+                    onClick={() => update("add", draft.add.filter((_, at) => at !== index))}
+                  >
+                    <CloseIcon size={16} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
-          {/*
-            Always mounted, so "Replace" can open it; visible only when there is
-            no file yet.
-          */}
-          <input
-            ref={fileInputRef}
-            id={`${fieldId}-file`}
-            className="input"
-            type="file"
-            accept={ACCEPTED_EXTENSIONS}
-            hidden={draft.attachment.kind !== "keep" || existingFile !== null}
-            onChange={(event) => handleFileChosen(event.target.files?.[0])}
-          />
-          <p className="field__hint">PDF, PowerPoint, Word, Excel, text or an image. Up to 25 MB.</p>
+          {fileCount < MAX_FILES && (
+            <>
+              {/* The real input stays focusable; the label is what's seen and clicked. */}
+              <input
+                ref={fileInputRef}
+                id={`${fieldId}-file`}
+                className="files__input"
+                type="file"
+                multiple
+                accept={ACCEPTED_EXTENSIONS}
+                onChange={(event) => addFiles(event.target.files)}
+              />
+              <label
+                htmlFor={`${fieldId}-file`}
+                className={`files__drop${isDragging ? " files__drop--over" : ""}`}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setIsDragging(false);
+                  addFiles(event.dataTransfer.files);
+                }}
+              >
+                <span className="files__drop-icon" aria-hidden="true">
+                  <UploadIcon size={20} />
+                </span>
+                <span className="files__drop-text">
+                  <span>
+                    <strong>{fileCount > 0 ? "Add more files" : "Choose files"}</strong> or drop them here
+                  </span>
+                  <span className="files__drop-hint">
+                    PDF, PowerPoint, Word, Excel, text or images · 25 MB each · up to {MAX_FILES}
+                  </span>
+                </span>
+              </label>
+            </>
+          )}
         </div>
       </div>
 
@@ -431,4 +478,11 @@ export function AssignmentForm({
       </div>
     </form>
   );
+}
+
+/** 1536 → "1.5 KB". */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

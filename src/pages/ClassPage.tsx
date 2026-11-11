@@ -3,9 +3,10 @@ import { Link, useParams } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
 import { toFriendlyError } from "../auth/errors";
+import { AssignmentDialog } from "../components/class/AssignmentDialog";
 import { AssignmentsTab } from "../components/class/AssignmentsTab";
 import { EmptyState } from "../components/EmptyState";
-import { PlusIcon } from "../components/icons";
+import { PlusIcon, SettingsIcon } from "../components/icons";
 import { PageHero } from "../components/PageHero";
 import { setCompleted, type ClassData } from "../data/classData";
 import { canManage, ROLE_LABELS, type ClassInfo, type Loadable } from "../data/types";
@@ -68,6 +69,8 @@ function ClassView({ info }: { info: ClassInfo }) {
   /** Ticks the person changed that the server has not confirmed yet. */
   const [pending, setPending] = useState<Map<string, boolean>>(new Map());
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const serverCompleted = data.data?.completedIds;
 
@@ -117,14 +120,45 @@ function ClassView({ info }: { info: ClassInfo }) {
           </>
         }
         actions={
+          // Members reach their class settings from the sidebar's "⋯".
           manager && (
-            <Link className="button button--primary" to={`/app/${info.id}/manage/assignments?compose=1`}>
-              <PlusIcon size={15} />
-              Post assignment
-            </Link>
+            <>
+              <Link className="button button--ghost" to={`/app/${info.id}/manage`}>
+                <SettingsIcon size={15} />
+                Manage class
+              </Link>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => {
+                  setNotice(null);
+                  setComposing(true);
+                }}
+              >
+                <PlusIcon size={15} />
+                Post assignment
+              </button>
+            </>
           )
         }
       />
+
+      {notice && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
+
+      {manager && (
+        <AssignmentDialog
+          open={composing}
+          classId={info.id}
+          subjects={data.data?.subjects ?? []}
+          assignment={null}
+          onClose={() => setComposing(false)}
+          onSaved={setNotice}
+        />
+      )}
 
       <div className="tabs" role="tablist" aria-label="Class work">
         {SECTIONS.map((each) => (

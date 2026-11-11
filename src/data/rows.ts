@@ -6,6 +6,7 @@
  */
 
 import type {
+  AttachedFile,
   Assignment,
   ClassInfo,
   ManagedAssignment,
@@ -20,9 +21,9 @@ const ROLES: MemberRole[] = ["owner", "admin", "member"];
 
 /** Columns every member reads. Never `created_by`. */
 export const ASSIGNMENT_COLUMNS =
-  "id, class_id, subject_id, subject_name, title, description, due_date, due_note, priority, attachment_path, attachment_name, posted_by_name, active";
+  "id, class_id, subject_id, subject_name, title, description, due_date, due_note, priority, attachments, posted_by_name, active";
 
-export const SUBJECT_COLUMNS = "id, class_id, name, active";
+export const SUBJECT_COLUMNS = "id, class_id, name, teacher, active";
 
 type Row = Record<string, unknown>;
 
@@ -76,18 +77,34 @@ export function toSubject(row: Row): SubjectInfo {
     id,
     classId: toText(row.class_id),
     name: toText(row.name, id),
+    teacher: toText(row.teacher).trim(),
     active: row.active === true,
   };
 }
 
-export function attachmentPathOf(row: Row): string | null {
-  return typeof row.attachment_path === "string" && row.attachment_path ? row.attachment_path : null;
+/** The `attachments` column: a list of `{ path, name }`, malformed entries dropped. */
+function storedFilesOf(row: Row): { path: string; name: string }[] {
+  if (!Array.isArray(row.attachments)) return [];
+  return row.attachments.flatMap((item: unknown) => {
+    const entry = (item ?? {}) as Row;
+    const path = toText(entry.path);
+    if (!path) return [];
+    return [{ path, name: toText(entry.name) || path.split("/").pop() || "Attachment" }];
+  });
+}
+
+/** Every file path on a row, for signing in one batch. */
+export function attachmentPathsOf(row: Row): string[] {
+  return storedFilesOf(row).map((each) => each.path);
 }
 
 /** `signedUrls` maps object path → signed URL, fetched in one batch by the caller. */
 export function toAssignment(row: Row, signedUrls: Map<string, string>): ManagedAssignment {
   const dueDate = toDueDate(row.due_date);
-  const path = attachmentPathOf(row);
+  const attachments: AttachedFile[] = storedFilesOf(row).map((each) => ({
+    ...each,
+    url: signedUrls.get(each.path) ?? null,
+  }));
 
   const base: Assignment = {
     id: toText(row.id),
@@ -98,15 +115,13 @@ export function toAssignment(row: Row, signedUrls: Map<string, string>): Managed
     dueDate,
     dueNote: toDueNote(row.due_note, dueDate),
     priority: toPriority(row.priority),
-    attachment: path ? (signedUrls.get(path) ?? null) : null,
-    attachmentName: path ? toText(row.attachment_name) || path.split("/").pop() || "Attachment" : null,
+    attachments,
     postedBy: typeof row.posted_by_name === "string" ? row.posted_by_name : null,
   };
 
   return {
     ...base,
     subjectId: toText(row.subject_id),
-    attachmentPath: path,
     active: row.active === true,
   };
 }

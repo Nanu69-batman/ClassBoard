@@ -24,6 +24,8 @@ bucket holds the files.
    (`20261111000000_accounts_and_classes.sql`) **drops** the tables from the
    earlier anonymous-student design, then creates profiles, classes, memberships,
    completions, the RLS policies and the private `attachments` bucket.
+   `20261112000000_subject_teachers_and_files.sql` then adds a teacher to each
+   subject and lets an assignment carry several files.
 2. **Point the app at the project.** Put the Project URL and the **anon** key
    (Project Settings → API) in `src/lib/supabase.ts`. Both are public by design
    and safe to commit.

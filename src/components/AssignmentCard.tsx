@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type MouseEvent } from "react";
 
-import { CheckCircleIcon, CheckIcon, ClockIcon, DocumentIcon, PaperclipIcon } from "./icons";
+import { AttachmentLinks } from "./AttachmentLinks";
+import { CheckCircleIcon, CheckIcon, ClockIcon, DocumentIcon } from "./icons";
 import type { Assignment } from "../data/types";
 import {
   formatDueDate,
@@ -162,16 +163,12 @@ export function AssignmentCard({
         )}
 
         <div id={detailsId} hidden={!isExpanded}>
-          {(assignment.attachment || assignment.postedBy) && (
+          <AttachmentLinks files={assignment.attachments} />
+          {(assignment.postedBy || assignment.teacher) && (
             <p className="row__footer">
-              {assignment.attachment && (
-                <a className="row__attachment" href={assignment.attachment} target="_blank" rel="noreferrer">
-                  <PaperclipIcon size={13} />
-                  {assignment.attachmentName || "Attachment"}
-                </a>
-              )}
               {/* Who set the work, stamped by the database from their profile. */}
               {assignment.postedBy && <span className="row__posted-by">Posted by {assignment.postedBy}</span>}
+              {assignment.teacher && <span className="row__posted-by">Teacher: {assignment.teacher}</span>}
             </p>
           )}
           {dateParts && (

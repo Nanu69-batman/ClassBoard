@@ -9,7 +9,7 @@
 import { supabase } from "../lib/supabase";
 import { signedUrls } from "./attachments";
 import { watchTopic } from "./realtime";
-import { ASSIGNMENT_COLUMNS, SUBJECT_COLUMNS, attachmentPathOf, toAssignment, toMember, toSubject } from "./rows";
+import { ASSIGNMENT_COLUMNS, SUBJECT_COLUMNS, attachmentPathsOf, toAssignment, toMember, toSubject } from "./rows";
 import type { Loadable, ManagedAssignment, Member, SubjectInfo } from "./types";
 
 export type ClassData = {
@@ -54,17 +54,24 @@ export function subscribeToClassData(
     }
 
     const rows = (assignments.data ?? []) as Record<string, unknown>[];
-    const paths = rows.map(attachmentPathOf).filter((path): path is string => path !== null);
+    const paths = rows.flatMap(attachmentPathsOf);
     const urls = await signedUrls(paths);
 
     if (closed || ticket !== latest) return;
+
+    const subjectList = (subjects.data ?? []).map(toSubject);
+    const teachers = new Map(subjectList.filter((each) => each.teacher).map((each) => [each.id, each.teacher]));
 
     onChange({
       status: "ready",
       error: null,
       data: {
-        assignments: rows.map((row) => toAssignment(row, urls)),
-        subjects: (subjects.data ?? []).map(toSubject),
+        assignments: rows.map((row) => {
+          const assignment = toAssignment(row, urls);
+          const teacher = teachers.get(assignment.subjectId);
+          return teacher ? { ...assignment, teacher } : assignment;
+        }),
+        subjects: subjectList,
         members: (members.data ?? []).map((row) => toMember(row as Record<string, unknown>)),
         completedIds: new Set((completions.data ?? []).map((row) => String(row.assignment_id))),
       },

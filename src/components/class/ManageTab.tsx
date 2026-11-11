@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { toFriendlyError } from "../../auth/errors";
-import { createAssignment, setAssignmentActive, updateAssignment } from "../../data/assignments";
+import { setAssignmentActive } from "../../data/assignments";
 import type { ClassData } from "../../data/classData";
 import type { Loadable, ManagedAssignment } from "../../data/types";
 import { formatDueDate, getDueLabel, sortAssignments } from "../../utils/assignmentStatus";
-import { AssignmentForm, type Submission } from "../AssignmentForm";
+import { AttachmentLinks } from "../AttachmentLinks";
 import { EmptyState } from "../EmptyState";
-import { PaperclipIcon } from "../icons";
+import { PlusIcon } from "../icons";
 import { Listbox, type ListboxOption } from "../Listbox";
+import { AssignmentDialog } from "./AssignmentDialog";
 
 type Visibility = "active" | "archived" | "all";
 
@@ -18,40 +19,24 @@ const VISIBILITY_OPTIONS: ListboxOption[] = [
   { value: "all", label: "All" },
 ];
 
-type Editor = { mode: "closed" } | { mode: "create" } | { mode: "edit"; assignment: ManagedAssignment };
+type Editor = { open: false } | { open: true; assignment: ManagedAssignment | null };
 
 type Props = {
   classId: string;
   data: Loadable<ClassData>;
-  /** True after the header's "Post assignment" is pressed, until handled. */
-  composeRequested: boolean;
-  onComposeHandled: () => void;
 };
 
 const ALL_SUBJECTS = "all";
 
 /** Owners and admins: post, edit and archive assignments. Subjects have their own tab. */
-export function ManageTab({ classId, data, composeRequested, onComposeHandled }: Props) {
+export function ManageTab({ classId, data }: Props) {
   const [visibility, setVisibility] = useState<Visibility>("active");
-  const [editor, setEditor] = useState<Editor>({ mode: "closed" });
+  const [editor, setEditor] = useState<Editor>({ open: false });
   const [isSaving, setIsSaving] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const [subject, setSubject] = useState(ALL_SUBJECTS);
-
-  useEffect(() => {
-    if (!composeRequested) return;
-    setWriteError(null);
-    setNotice(null);
-    setEditor({ mode: "create" });
-    onComposeHandled();
-  }, [composeRequested, onComposeHandled]);
-
-  useEffect(() => {
-    if (editor.mode !== "closed") panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [editor]);
 
   const all = useMemo(() => data.data?.assignments ?? [], [data.data]);
   const subjects = data.data?.subjects ?? [];
@@ -75,35 +60,24 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
     if (subject !== ALL_SUBJECTS && !subjectOptions.some((each) => each.value === subject)) setSubject(ALL_SUBJECTS);
   }, [subject, subjectOptions]);
 
-  function closeEditor() {
-    setEditor({ mode: "closed" });
+  function openEditor(assignment: ManagedAssignment | null) {
     setWriteError(null);
+    setNotice(null);
+    setEditor({ open: true, assignment });
   }
 
-  async function runWrite(action: () => Promise<void>, success: string, closeAfter = true) {
+  async function runWrite(action: () => Promise<void>, success: string) {
     setIsSaving(true);
     setWriteError(null);
     setNotice(null);
     try {
       await action();
       setNotice(success);
-      if (closeAfter) closeEditor();
     } catch (error) {
       setWriteError(toFriendlyError(error));
     } finally {
       setIsSaving(false);
     }
-  }
-
-  function handleSubmit({ attachment, ...draft }: Submission) {
-    if (editor.mode === "edit") {
-      const current = editor.assignment;
-      void runWrite(() => updateAssignment(current, draft, attachment), "Assignment updated.");
-      return;
-    }
-    void runWrite(async () => {
-      await createAssignment(classId, draft, attachment);
-    }, "Assignment posted. Your class can see it now.");
   }
 
   function handleToggleActive(assignment: ManagedAssignment) {
@@ -121,25 +95,10 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
           {notice}
         </p>
       )}
-      {/* With the editor open, the form shows the error itself. */}
-      {writeError && editor.mode === "closed" && (
+      {writeError && (
         <p className="form__error" role="alert">
           {writeError}
         </p>
-      )}
-
-      {editor.mode !== "closed" && (
-        <div className="panel" ref={panelRef}>
-          <h3 className="panel__title">{editor.mode === "edit" ? "Edit assignment" : "New assignment"}</h3>
-          <AssignmentForm
-            assignment={editor.mode === "edit" ? editor.assignment : null}
-            subjects={subjects}
-            isSaving={isSaving}
-            error={writeError}
-            onSubmit={handleSubmit}
-            onCancel={closeEditor}
-          />
-        </div>
       )}
 
       <section className="section">
@@ -161,6 +120,10 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
               ariaLabel="Filter by subject"
             />
           </div>
+          <button type="button" className="button button--primary" onClick={() => openEditor(null)}>
+            <PlusIcon size={15} />
+            Post assignment
+          </button>
         </div>
 
         <p className="section-lead">
@@ -204,12 +167,7 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
                   </p>
                   <p className="record__title">{assignment.title}</p>
                   {assignment.description && <p className="record__description">{assignment.description}</p>}
-                  {assignment.attachment && (
-                    <a className="row__attachment" href={assignment.attachment} target="_blank" rel="noreferrer">
-                      <PaperclipIcon size={13} />
-                      {assignment.attachmentName || "Attachment"}
-                    </a>
-                  )}
+                  <AttachmentLinks files={assignment.attachments} />
                 </div>
 
                 <p className="record__aside">
@@ -227,11 +185,7 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
                       type="button"
                       className="link-button"
                       disabled={isSaving}
-                      onClick={() => {
-                        setWriteError(null);
-                        setNotice(null);
-                        setEditor({ mode: "edit", assignment });
-                      }}
+                      onClick={() => openEditor(assignment)}
                     >
                       Edit
                     </button>
@@ -251,6 +205,14 @@ export function ManageTab({ classId, data, composeRequested, onComposeHandled }:
         )}
       </section>
 
+      <AssignmentDialog
+        open={editor.open}
+        classId={classId}
+        subjects={subjects}
+        assignment={editor.open ? editor.assignment : null}
+        onClose={() => setEditor({ open: false })}
+        onSaved={setNotice}
+      />
     </>
   );
 }

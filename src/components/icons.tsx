@@ -24,6 +24,16 @@ function svgProps(size: number, className?: string) {
   } as const;
 }
 
+export function UploadIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="M12 15V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
+    </svg>
+  );
+}
+
 export function SearchIcon({ size = 20, className }: IconProps) {
   return (
     <svg {...svgProps(size, className)}>

@@ -45,10 +45,10 @@ function extensionOf(name: string): string {
 /** A human-readable problem with the file, or null when it can be uploaded. */
 export function validateAttachment(file: File): string | null {
   if (!CONTENT_TYPES[extensionOf(file.name)]) {
-    return "That file type is not supported. Use PDF, PowerPoint, Word, Excel, text or an image.";
+    return `"${file.name}" is not a supported type. Use PDF, PowerPoint, Word, Excel, text or an image.`;
   }
-  if (file.size === 0) return "That file is empty.";
-  if (file.size > MAX_ATTACHMENT_BYTES) return "That file is larger than 25 MB.";
+  if (file.size === 0) return `"${file.name}" is empty.`;
+  if (file.size > MAX_ATTACHMENT_BYTES) return `"${file.name}" is larger than 25 MB.`;
   return null;
 }
 
@@ -88,10 +88,10 @@ export async function uploadAttachment(
 }
 
 /** Best-effort removal. A leftover object costs storage, never correctness. */
-export async function removeAttachment(path: string | null): Promise<void> {
-  if (!path) return;
-  const { error } = await supabase.storage.from(ATTACHMENTS_BUCKET).remove([path]);
-  if (error) console.error("[classboard] could not remove attachment", error);
+export async function removeAttachments(paths: string[]): Promise<void> {
+  if (paths.length === 0) return;
+  const { error } = await supabase.storage.from(ATTACHMENTS_BUCKET).remove(paths);
+  if (error) console.error("[classboard] could not remove attachments", error);
 }
 
 /** How long a file link stays valid. Lists refetch on every change, renewing them. */

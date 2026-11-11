@@ -1,5 +1,4 @@
-import { useCallback } from "react";
-import { Link, NavLink, Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, NavLink, Navigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
 import { ManageTab } from "../components/class/ManageTab";
@@ -32,24 +31,8 @@ export function ClassManageView({ info }: { info: ClassInfo }) {
   const userId = user?.id ?? "";
   const manager = canManage(info.role);
   const { section: rawSection } = useParams<{ section?: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
 
   const [data] = useClassData(info.id, userId);
-
-  // "Post assignment" on the class page lands here with ?compose=1.
-  const composeRequested = searchParams.get("compose") === "1";
-  const onComposeHandled = useCallback(
-    () =>
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          next.delete("compose");
-          return next;
-        },
-        { replace: true },
-      ),
-    [setSearchParams],
-  );
 
   const base = `/app/${info.id}/manage`;
   const fallback: ManageSection = manager ? "assignments" : "members";
@@ -106,12 +89,7 @@ export function ClassManageView({ info }: { info: ClassInfo }) {
           )}
 
           {section === "assignments" && data.status !== "error" && (
-            <ManageTab
-              classId={info.id}
-              data={data}
-              composeRequested={composeRequested}
-              onComposeHandled={onComposeHandled}
-            />
+            <ManageTab classId={info.id} data={data} />
           )}
 
           {section === "subjects" && data.status !== "error" && <SubjectsTab classId={info.id} data={data} />}

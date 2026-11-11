@@ -2,8 +2,8 @@
  * The shapes the UI renders.
  *
  * Deliberately separate from the database row shape. An assignment row is
- * `{ subject_id, subject_name, title, ..., attachment_path }`; the card wants
- * `{ subject, title, ..., attachment }`. Mapping once, in `rows.ts`, means the
+ * `{ subject_id, subject_name, title, ..., attachments }`; the card wants
+ * `{ subject, title, ..., attachments }` with links ready to open. Mapping once, in `rows.ts`, means the
  * components never learn a column name that only the backend uses.
  */
 
@@ -18,6 +18,16 @@ export type Priority = "none" | "low" | "normal" | "high";
 /** A person's role inside one class. Owners and admins can post work. */
 export type MemberRole = "owner" | "admin" | "member";
 
+/** One file on an assignment. */
+export type AttachedFile = {
+  /** Storage object path, so an edit can keep or remove it. */
+  path: string;
+  /** The name it was uploaded with, for display. */
+  name: string;
+  /** Signed URL to open it, or null if it could not be signed. Expires; refreshed on every load. */
+  url: string | null;
+};
+
 export type Assignment = {
   id: string;
   classId: string;
@@ -30,9 +40,10 @@ export type Assignment = {
   /** Shown in place of a date when there is no deadline. Null when there is a date. */
   dueNote: string | null;
   priority: Priority;
-  /** Signed URL of the attached file, or null. Expires; refreshed on every load. */
-  attachment: string | null;
-  attachmentName?: string | null;
+  /** Files posted with it, in the order they were added. */
+  attachments: AttachedFile[];
+  /** The subject's teacher, when one is set. */
+  teacher?: string;
   /** Display name of whoever posted it. */
   postedBy?: string | null;
 };
@@ -43,8 +54,6 @@ export type Assignment = {
  */
 export type ManagedAssignment = Assignment & {
   subjectId: string;
-  /** Storage object path, so an edit can replace or remove the file. */
-  attachmentPath: string | null;
   active: boolean;
 };
 
@@ -69,6 +78,8 @@ export type SubjectInfo = {
   id: string;
   classId: string;
   name: string;
+  /** Who teaches it. Empty when not set. */
+  teacher: string;
   active: boolean;
 };
 

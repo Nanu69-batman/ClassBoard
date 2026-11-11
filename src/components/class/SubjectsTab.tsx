@@ -1,33 +1,53 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { toFriendlyError } from "../../auth/errors";
-import { addSubject, setSubjectActive } from "../../data/assignments";
+import { setSubjectActive } from "../../data/assignments";
 import type { ClassData } from "../../data/classData";
-import type { Loadable } from "../../data/types";
+import type { Loadable, SubjectInfo } from "../../data/types";
 import { EmptyState } from "../EmptyState";
+import { PlusIcon } from "../icons";
+import { SubjectDialog } from "./SubjectDialog";
 
 type Props = {
   classId: string;
   data: Loadable<ClassData>;
 };
 
-/** Owners and admins: add subjects, and archive the ones no longer taught. */
+type Editor = { open: false } | { open: true; subject: SubjectInfo | null };
+
+/** Owners and admins: add subjects with their teachers, edit them, archive old ones. */
 export function SubjectsTab({ classId, data }: Props) {
-  const [name, setName] = useState("");
+  const [editor, setEditor] = useState<Editor>({ open: false });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // "Add a subject" from the post-assignment dialog lands here with ?add=1.
+  useEffect(() => {
+    if (searchParams.get("add") !== "1") return;
+    setEditor({ open: true, subject: null });
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("add");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, setSearchParams]);
 
   const subjects = data.data?.subjects ?? [];
   const activeCount = subjects.filter((each) => each.active).length;
 
-  async function runWrite(action: () => Promise<void>, success: string) {
+  async function toggleActive(subject: SubjectInfo) {
     setIsSaving(true);
     setError(null);
     setNotice(null);
     try {
-      await action();
-      setNotice(success);
+      await setSubjectActive(subject.id, !subject.active);
+      setNotice(subject.active ? `"${subject.name}" archived.` : `"${subject.name}" restored.`);
     } catch (cause) {
       setError(toFriendlyError(cause));
     } finally {
@@ -35,20 +55,20 @@ export function SubjectsTab({ classId, data }: Props) {
     }
   }
 
-  function handleAdd(event: FormEvent) {
-    event.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    void runWrite(async () => {
-      await addSubject(classId, trimmed);
-      setName("");
-    }, `Subject "${trimmed}" added.`);
+  function openEditor(subject: SubjectInfo | null) {
+    setError(null);
+    setNotice(null);
+    setEditor({ open: true, subject });
   }
 
   return (
     <section className="section">
       <div className="toolbar">
         <h2 className="toolbar__title">Subjects</h2>
+        <button type="button" className="button button--primary" onClick={() => openEditor(null)}>
+          <PlusIcon size={15} />
+          Add subject
+        </button>
       </div>
 
       {subjects.length > 0 && (
@@ -69,23 +89,6 @@ export function SubjectsTab({ classId, data }: Props) {
         </p>
       )}
 
-      <form className="inline-form" onSubmit={handleAdd}>
-        <label className="sr-only" htmlFor="new-subject">
-          New subject name
-        </label>
-        <input
-          id="new-subject"
-          className="input"
-          placeholder="Add a subject, e.g. Physics"
-          maxLength={120}
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
-        <button type="submit" className="button button--primary" disabled={isSaving || !name.trim()}>
-          Add
-        </button>
-      </form>
-
       {data.status === "loading" && (
         <p className="section-lead" role="status">
           Loading…
@@ -93,7 +96,10 @@ export function SubjectsTab({ classId, data }: Props) {
       )}
 
       {data.status === "ready" && subjects.length === 0 && (
-        <EmptyState title="No subjects yet" message="Add one above, then pick it when you post an assignment." />
+        <EmptyState
+          title="No subjects yet"
+          message="Add the subjects your class takes, with who teaches each one. Assignments are posted under them."
+        />
       )}
 
       {subjects.length > 0 && (
@@ -105,26 +111,42 @@ export function SubjectsTab({ classId, data }: Props) {
                   {subject.name}
                   {!subject.active && <span className="badge badge--archived">Archived</span>}
                 </p>
+                <p className="record__description">
+                  {subject.teacher ? `Taught by ${subject.teacher}` : "No teacher added"}
+                </p>
               </div>
               <p className="record__aside">
-                <button
-                  type="button"
-                  className="link-button"
-                  disabled={isSaving}
-                  onClick={() =>
-                    void runWrite(
-                      () => setSubjectActive(subject.id, !subject.active),
-                      subject.active ? `"${subject.name}" archived.` : `"${subject.name}" restored.`,
-                    )
-                  }
-                >
-                  {subject.active ? "Archive" : "Restore"}
-                </button>
+                <span className="record__actions">
+                  <button
+                    type="button"
+                    className="link-button"
+                    disabled={isSaving}
+                    onClick={() => openEditor(subject)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="link-button"
+                    disabled={isSaving}
+                    onClick={() => void toggleActive(subject)}
+                  >
+                    {subject.active ? "Archive" : "Restore"}
+                  </button>
+                </span>
               </p>
             </li>
           ))}
         </ul>
       )}
+
+      <SubjectDialog
+        open={editor.open}
+        classId={classId}
+        subject={editor.open ? editor.subject : null}
+        onClose={() => setEditor({ open: false })}
+        onSaved={setNotice}
+      />
     </section>
   );
 }
