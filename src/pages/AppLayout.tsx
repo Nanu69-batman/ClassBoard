@@ -4,7 +4,9 @@ import { NavLink, Outlet, useOutletContext } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { AddClassDialog, type AddClassMode } from "../components/AddClassDialog";
 import { Avatar } from "../components/Avatar";
+import { Brand } from "../components/Brand";
 import { HomeIcon, PlusIcon } from "../components/icons";
+import { CampusIllustration } from "../components/illustrations";
 import { subscribeToMyClasses } from "../data/classes";
 import type { ClassInfo, Loadable } from "../data/types";
 
@@ -38,25 +40,35 @@ export function AppLayout() {
 
   return (
     <div className="workspace">
+      {/*
+        One nav, two widths. On a wide screen every item shows its label; below
+        that the labels hide and it collapses to a rail of icons and initials.
+        The accessible names are on the links themselves, so nothing changes for
+        a screen reader between the two.
+      */}
       <nav className="rail" aria-label="Your classes">
-        <NavLink to="/app" end className="rail__item rail__item--home" aria-label="Home" title="Home">
-          <HomeIcon size={22} />
+        <NavLink to="/app" end className="rail__brand" aria-label="Classboard home">
+          <Brand size={24} />
+        </NavLink>
+
+        <NavLink to="/app" end className="rail__item" title="Home">
+          <span className="rail__icon" aria-hidden="true">
+            <HomeIcon size={20} />
+          </span>
+          <span className="rail__label">Home</span>
         </NavLink>
 
         <span className="rail__divider" aria-hidden="true" />
+        <p className="rail__heading">Classes</p>
 
         <ul className="rail__classes">
           {(classes.data ?? []).map((each) => (
             <li key={each.id}>
-              <NavLink
-                to={`/app/${each.id}`}
-                className="rail__item"
-                aria-label={each.name}
-                title={each.name}
-              >
-                <span className="rail__initials" aria-hidden="true">
+              <NavLink to={`/app/${each.id}`} className="rail__item" title={each.name}>
+                <span className="rail__icon rail__icon--initials" aria-hidden="true">
                   {initials(each.name)}
                 </span>
+                <span className="rail__label">{each.name}</span>
               </NavLink>
             </li>
           ))}
@@ -64,17 +76,28 @@ export function AppLayout() {
             <button
               type="button"
               className="rail__item rail__item--add"
-              aria-label="Create or join a class"
               title="Create or join a class"
               onClick={() => openAddClass()}
             >
-              <PlusIcon size={22} />
+              <span className="rail__icon" aria-hidden="true">
+                <PlusIcon size={20} />
+              </span>
+              <span className="rail__label">Create or join</span>
+              <span className="sr-only">a class</span>
             </button>
           </li>
         </ul>
 
-        <NavLink to="/app/account" className="rail__item rail__item--me" aria-label="Your account" title={displayName}>
-          <Avatar name={displayName} />
+        <CampusIllustration className="rail__art" />
+
+        <NavLink to="/app/account" className="rail__item rail__item--me" title={displayName}>
+          <span className="rail__icon" aria-hidden="true">
+            <Avatar name={displayName} size="sm" />
+          </span>
+          <span className="rail__label">
+            {displayName}
+            <span className="rail__sublabel">Account</span>
+          </span>
         </NavLink>
       </nav>
 

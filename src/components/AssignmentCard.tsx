@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 
-import { CalendarIcon, CheckIcon, PaperclipIcon } from "./icons";
+import { CheckCircleIcon, CheckIcon, ClockIcon, DocumentIcon, PaperclipIcon } from "./icons";
 import type { Assignment } from "../data/types";
 import {
   formatDueDate,
   getAssignmentStatus,
+  getDueDateParts,
   getDueLabel,
-  STATUS_LABELS,
+  getRelativeDueText,
+  getShortDueText,
 } from "../utils/assignmentStatus";
 
 /** Descriptions longer than this get a show more / show less toggle. */
@@ -36,6 +38,11 @@ type AssignmentCardProps = {
   justCompleted?: boolean;
 };
 
+/** The DOM id of a card, so other parts of the page can link to it. */
+export function assignmentAnchor(id: string): string {
+  return `assignment-${id}`;
+}
+
 export function AssignmentCard({
   assignment,
   isCompleted,
@@ -56,41 +63,51 @@ export function AssignmentCard({
   const isLongDescription = assignment.description.length > LONG_DESCRIPTION_LENGTH;
   const isCollapsed = isLongDescription && !isExpanded;
 
-  // A note-based assignment has no date, so there is no absolute date to print
-  // underneath — the note is the whole of the due information.
-  const hasDate = assignment.dueDate !== "";
-  const dueLabel = isCompleted
-    ? STATUS_LABELS.completed
-    : getDueLabel(assignment);
+  // A note-based assignment has no date, so the date block has nothing to show
+  // and the note goes in the body instead.
+  const dateParts = getDueDateParts(assignment.dueDate);
 
   return (
     <article
+      id={assignmentAnchor(assignment.id)}
       className={`row row--${status}`}
       // Drives the settle animation only, via a CSS attribute selector. Kept out
       // of the class string so a re-render cannot restart the transition.
       data-just-completed={justCompleted ? "true" : undefined}
     >
       {/*
-        The check is a second element rather than a drawn tick inside the button,
-        so the tick can have its own stroke animation without fighting the
-        button's press feedback.
+        The date block. Visual shorthand only: the full wording ("Due tomorrow,
+        28 Sep 2026") is given to screen readers in one piece instead.
       */}
-      <button
-        ref={toggleRef}
-        type="button"
-        className="row__check"
-        aria-pressed={isCompleted}
-        aria-label={`${isCompleted ? "Mark as pending" : "Mark as done"}: ${assignment.title}, ${assignment.subject}`}
-        onClick={(event) => onToggle(assignment.id, event.detail === 0)}
-      >
-        <span className="row__check-mark" aria-hidden="true">
-          <CheckIcon size={13} />
+      <div className="row__date">
+        {isCompleted ? (
+          <CheckCircleIcon size={28} className="row__date-done" />
+        ) : dateParts ? (
+          <span aria-hidden="true" className="row__date-parts">
+            <span className="row__date-month">{dateParts.month}</span>
+            <span className="row__date-day">{dateParts.day}</span>
+            <span className="row__date-relative">{getShortDueText(assignment.dueDate)}</span>
+          </span>
+        ) : (
+          <span aria-hidden="true" className="row__date-parts">
+            <ClockIcon size={22} className="row__date-undated" />
+            <span className="row__date-relative">No date</span>
+          </span>
+        )}
+        <span className="sr-only">
+          {isCompleted
+            ? "Completed."
+            : dateParts
+              ? `${getRelativeDueText(assignment.dueDate)}, ${formatDueDate(assignment.dueDate)}.`
+              : `${getDueLabel(assignment)}.`}
         </span>
-      </button>
+      </div>
+
+      <span className="row__icon" aria-hidden="true">
+        <DocumentIcon size={20} />
+      </span>
 
       <div className="row__body">
-        <h3 className="row__title">{assignment.title}</h3>
-
         <p className="row__meta">
           <span className="row__subject">{assignment.subject}</span>
           {/*
@@ -105,11 +122,13 @@ export function AssignmentCard({
           )}
         </p>
 
-        <p
-          className={`row__description${isCollapsed ? " row__description--clamped" : ""}`}
-        >
-          {assignment.description}
-        </p>
+        <h3 className="row__title">{assignment.title}</h3>
+
+        {assignment.description && (
+          <p className={`row__description${isCollapsed ? " row__description--clamped" : ""}`}>
+            {assignment.description}
+          </p>
+        )}
 
         {isLongDescription && (
           <button
@@ -122,31 +141,44 @@ export function AssignmentCard({
           </button>
         )}
 
-        {assignment.attachment && (
-          <a
-            className="row__attachment"
-            href={assignment.attachment}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <PaperclipIcon size={13} />
-            {assignment.attachmentName || "Attachment"}
-          </a>
+        {!dateParts && !isCompleted && (
+          <p className="row__note" aria-hidden="true">
+            <ClockIcon size={14} />
+            {getDueLabel(assignment)}
+          </p>
         )}
 
-        {/* Who set the work, stamped by the database from their profile. */}
-        {assignment.postedBy && (
-          <p className="row__posted-by">Posted by {assignment.postedBy}</p>
+        {(assignment.attachment || assignment.postedBy) && (
+          <p className="row__footer">
+            {assignment.attachment && (
+              <a className="row__attachment" href={assignment.attachment} target="_blank" rel="noreferrer">
+                <PaperclipIcon size={13} />
+                {assignment.attachmentName || "Attachment"}
+              </a>
+            )}
+            {/* Who set the work, stamped by the database from their profile. */}
+            {assignment.postedBy && <span className="row__posted-by">Posted by {assignment.postedBy}</span>}
+          </p>
         )}
       </div>
 
-      <p className="row__due">
-        <span className="row__due-relative">
-          {hasDate ? <CalendarIcon size={17} /> : null}
-          {dueLabel}
+      <button
+        ref={toggleRef}
+        type="button"
+        className="row__check"
+        aria-pressed={isCompleted}
+        aria-label={`${isCompleted ? "Mark as pending" : "Mark as done"}: ${assignment.title}, ${assignment.subject}`}
+        onClick={(event) => onToggle(assignment.id, event.detail === 0)}
+      >
+        <span className="row__check-mark" aria-hidden="true">
+          <CheckIcon size={18} />
         </span>
-        {hasDate && <span className="row__due-date">{formatDueDate(assignment.dueDate)}</span>}
-      </p>
+        {isCompleted && (
+          <span className="row__check-text" aria-hidden="true">
+            Completed
+          </span>
+        )}
+      </button>
     </article>
   );
 }

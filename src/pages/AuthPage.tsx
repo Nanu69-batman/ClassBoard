@@ -4,6 +4,7 @@ import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { toFriendlyError } from "../auth/errors";
 import { safeNext } from "../auth/RequireAuth";
+import { Brand } from "../components/Brand";
 import { FullPageStatus } from "../components/FullPageStatus";
 
 type Mode = "login" | "signup";
@@ -99,7 +100,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
     <div className="auth-page">
       <div className="auth-card">
         <Link className="auth-card__brand" to="/">
-          classboard
+          <Brand />
         </Link>
 
         <h1 className="auth-card__title">{copy.title}</h1>

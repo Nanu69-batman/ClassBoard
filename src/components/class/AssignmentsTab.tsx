@@ -7,7 +7,7 @@ import { AssignmentList } from "../AssignmentList";
 import { EmptyState } from "../EmptyState";
 import { FilterBar, type StatusFilter } from "../FilterBar";
 import { SearchIcon } from "../icons";
-import { StatCards } from "../StatCards";
+import { Agenda } from "./Agenda";
 
 const ALL_SUBJECTS = "all";
 
@@ -96,51 +96,53 @@ export function AssignmentsTab({ data, isCompleted, onToggle, toggleError }: Pro
   }
 
   return (
-    <>
-      <StatCards counts={counts} />
-
-      <div className="toolbar">
-        <div className="search-field">
-          <SearchIcon size={18} />
-          <label className="sr-only" htmlFor="assignment-search">
-            Search assignments
-          </label>
-          <input
-            id="assignment-search"
-            className="search-input"
-            type="search"
-            value={query}
-            placeholder="Search assignments…"
-            autoComplete="off"
-            onChange={(event) => setQuery(event.target.value)}
+    <div className="board">
+      <div className="board__main">
+        <div className="toolbar">
+          <FilterBar
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            subjects={subjects}
+            subject={subject}
+            onSubjectChange={setSubject}
           />
+          <div className="search-field">
+            <SearchIcon size={18} />
+            <label className="sr-only" htmlFor="assignment-search">
+              Search assignments
+            </label>
+            <input
+              id="assignment-search"
+              className="search-input"
+              type="search"
+              value={query}
+              placeholder="Search assignments…"
+              autoComplete="off"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
         </div>
-        <FilterBar
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          subjects={subjects}
-          subject={subject}
-          onSubjectChange={setSubject}
-        />
+
+        {toggleError && (
+          <p className="form__error" role="alert">
+            {toggleError}
+          </p>
+        )}
+
+        {empty && <EmptyState {...empty} />}
+
+        {groups.length > 0 && data.status === "ready" && (
+          <AssignmentList
+            groups={groups}
+            isCompleted={isCompleted}
+            onToggle={handleToggle}
+            lastToggledId={lastToggledId}
+            justCompletedId={justCompletedId}
+          />
+        )}
       </div>
 
-      {toggleError && (
-        <p className="form__error" role="alert">
-          {toggleError}
-        </p>
-      )}
-
-      {empty && <EmptyState {...empty} />}
-
-      {groups.length > 0 && data.status === "ready" && (
-        <AssignmentList
-          groups={groups}
-          isCompleted={isCompleted}
-          onToggle={handleToggle}
-          lastToggledId={lastToggledId}
-          justCompletedId={justCompletedId}
-        />
-      )}
-    </>
+      <Agenda assignments={assignments} isCompleted={isCompleted} />
+    </div>
   );
 }

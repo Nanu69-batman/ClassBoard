@@ -151,3 +151,39 @@ export function CloseIcon({ size = 18, className }: IconProps) {
     </svg>
   );
 }
+
+/** Two leaves on a stem: the ClassBoard mark. Filled, so it holds up at small sizes. */
+export function LeafIcon({ size = 22, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)} fill="currentColor" strokeWidth={1.2}>
+      <path d="M11.2 20.5c-.2-3.4.3-6.2 1.6-8.4" fill="none" strokeWidth={1.8} />
+      <path d="M11.4 14.6C6.4 15 3 12.2 2.6 6.4c5.4-.6 8.8 2.6 8.8 8.2z" />
+      <path d="M12.6 12.4c-.4-5.6 2.6-9 8.8-9.2.4 5.8-2.8 9-8.8 9.2z" />
+    </svg>
+  );
+}
+
+export function ChevronLeftIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+
+export function ChevronRightIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+export function CheckCircleIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg {...svgProps(size, className)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12.4 2.8 2.8L16.2 9.6" />
+    </svg>
+  );
+}

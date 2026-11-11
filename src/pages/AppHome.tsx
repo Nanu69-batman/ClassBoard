@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
 import { EmptyState } from "../components/EmptyState";
 import { LinkIcon, PlusIcon } from "../components/icons";
+import { BooksIllustration } from "../components/illustrations";
+import { PageHero } from "../components/PageHero";
 import { ROLE_LABELS } from "../data/types";
 import { initials, useAppContext } from "./AppLayout";
 
@@ -21,14 +23,20 @@ export function AppHome() {
 
   return (
     <main className="content">
-      <div className="greeting">
-        <h1 className="greeting__title">
-          {greeting()}, {displayName.split(" ")[0]} <span aria-hidden="true">👋</span>
-        </h1>
-        <p className="greeting__subtitle">
-          {list.length > 0 ? "Pick a class to see what's due." : "Let's get you into a class."}
-        </p>
-      </div>
+      <PageHero
+        title={`${greeting()}, ${displayName.split(" ")[0]}.`}
+        subtitle={
+          list.length > 0 ? (
+            <>
+              You're in <strong>{list.length}</strong> {list.length === 1 ? "class" : "classes"}. Pick one to see
+              what's due.
+            </>
+          ) : (
+            "Let's get you into a class."
+          )
+        }
+        art={<BooksIllustration className="hero__books" />}
+      />
 
       <div className="toolbar">
         <h2 className="toolbar__title">Your classes</h2>

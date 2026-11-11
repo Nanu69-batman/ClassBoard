@@ -9,9 +9,11 @@ import { MembersTab } from "../components/class/MembersTab";
 import { SettingsTab } from "../components/class/SettingsTab";
 import { EmptyState } from "../components/EmptyState";
 import { LinkIcon, PlusIcon } from "../components/icons";
+import { PageHero } from "../components/PageHero";
 import { inviteLink } from "../data/classes";
 import { setCompleted, subscribeToClassData, type ClassData } from "../data/classData";
 import { canManage, ROLE_LABELS, type ClassInfo, type Loadable } from "../data/types";
+import { countAssignments } from "../utils/assignmentStatus";
 import { useAppContext } from "./AppLayout";
 
 type Tab = "assignments" | "manage" | "members" | "settings";
@@ -129,17 +131,18 @@ function ClassView({ info }: { info: ClassInfo }) {
   ];
 
   return (
-    <>
-      <header className="class-header">
-        <div className="class-header__inner">
-          <div className="class-header__text">
-            <h1 className="class-header__name">{info.name}</h1>
-            <p className="class-header__meta">
-              <span className={`badge badge--role-${info.role}`}>{ROLE_LABELS[info.role]}</span>
-              {info.description && <span className="class-header__description">{info.description}</span>}
-            </p>
-          </div>
-          <div className="class-header__actions">
+    <main className="content content--wide">
+      <PageHero
+        title={info.name}
+        subtitle={<PendingSummary data={data} isCompleted={isCompleted} />}
+        meta={
+          <>
+            <span className={`badge badge--role-${info.role}`}>{ROLE_LABELS[info.role]}</span>
+            {info.description && <span className="hero__description">{info.description}</span>}
+          </>
+        }
+        actions={
+          <>
             <button type="button" className="button button--ghost" onClick={() => void copyInvite()}>
               <LinkIcon size={15} />
               {copied ? "Link copied" : "Invite"}
@@ -157,28 +160,28 @@ function ClassView({ info }: { info: ClassInfo }) {
                 Post assignment
               </button>
             )}
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        <div className="tabs" role="tablist" aria-label="Class sections">
-          {tabs.map((each) => (
-            <button
-              key={each.id}
-              type="button"
-              role="tab"
-              id={`tab-${each.id}`}
-              aria-selected={tab === each.id}
-              aria-controls="class-panel"
-              className={`tabs__tab${tab === each.id ? " tabs__tab--active" : ""}`}
-              onClick={() => setTab(each.id)}
-            >
-              {each.label}
-            </button>
-          ))}
-        </div>
-      </header>
+      <div className="tabs" role="tablist" aria-label="Class sections">
+        {tabs.map((each) => (
+          <button
+            key={each.id}
+            type="button"
+            role="tab"
+            id={`tab-${each.id}`}
+            aria-selected={tab === each.id}
+            aria-controls="class-panel"
+            className={`tabs__tab${tab === each.id ? " tabs__tab--active" : ""}`}
+            onClick={() => setTab(each.id)}
+          >
+            {each.label}
+          </button>
+        ))}
+      </div>
 
-      <main className="content" id="class-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
+      <div className="tab-panel" id="class-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
         {data.status === "error" && <EmptyState title="Something went wrong" message={data.error} />}
 
         {tab === "assignments" && data.status !== "error" && (
@@ -204,7 +207,37 @@ function ClassView({ info }: { info: ClassInfo }) {
         )}
 
         {tab === "settings" && <SettingsTab info={info} />}
-      </main>
+      </div>
+    </main>
+  );
+}
+
+/** "You have 5 pending assignments." — the one line of status under the class name. */
+function PendingSummary({
+  data,
+  isCompleted,
+}: {
+  data: Loadable<ClassData>;
+  isCompleted: (id: string) => boolean;
+}) {
+  if (data.status !== "ready") return null;
+
+  const active = data.data.assignments.filter((each) => each.active);
+  const counts = countAssignments(active, isCompleted);
+
+  if (active.length === 0) return <>Nothing has been posted here yet.</>;
+  if (counts.pending === 0) return <>You're all caught up.</>;
+
+  return (
+    <>
+      You have <strong>{counts.pending}</strong> pending{" "}
+      {counts.pending === 1 ? "assignment" : "assignments"}.
+      {counts.overdue > 0 && (
+        <>
+          {" "}
+          <span className="hero__overdue">{counts.overdue} overdue.</span>
+        </>
+      )}
     </>
   );
 }

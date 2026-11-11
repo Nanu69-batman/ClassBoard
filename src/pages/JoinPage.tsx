@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../auth/AuthProvider";
 import { toFriendlyError } from "../auth/errors";
+import { Brand } from "../components/Brand";
 import { FullPageStatus } from "../components/FullPageStatus";
 import { joinClass, parseInviteCode, peekClass, type ClassPreview } from "../data/classes";
 
@@ -58,8 +59,8 @@ export function JoinPage() {
       <div className="auth-page">
         <div className="auth-card auth-card--notice">
           <Link className="auth-card__brand" to="/">
-            classboard
-          </Link>
+          <Brand />
+        </Link>
           <h1 className="auth-card__title">You've been invited to a class</h1>
           <p className="auth-card__hint">Log in or create an account to join it. You'll come straight back here.</p>
           <Link className="button button--primary button--block" to={`/signup?next=${next}`}>

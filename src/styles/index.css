@@ -4,57 +4,59 @@
 --------------------------------------------------------------------------- */
 
 :root {
-  --bg: #f7f7fa;
-  --surface: #ffffff;
-  --border: #ebebf0;
-  --border-strong: #dcdce4;
+  /* Paper, ink and a forest green. */
+  --bg: #f6f2ea;
+  --surface: #fbf9f4;
+  --surface-sunk: #f1ece2;
+  --border: #e7e0d3;
+  --border-strong: #d8cfbe;
 
-  --text: #101018;
-  --text-soft: #55555f;
-  --text-muted: #6b6b76;
+  --text: #1f2a22;
+  --text-soft: #4b544c;
+  --text-muted: #7a7c72;
 
-  --accent: #4f46e5;
-  --accent-soft: #eef0ff;
-  --accent-text: #4338ca;
+  --accent: #2f5d3a;
+  --accent-strong: #234a2c;
+  --accent-soft: #e3eadb;
+  --accent-text: #2a5434;
 
   /* Text variants are darker than the bar/icon variants to stay legible. */
-  --red: #ef4444;
-  --red-text: #b42318;
-  --red-tint: #fef4f4;
-  --red-icon: #fee2e2;
+  --red: #c4513f;
+  --red-text: #a3382a;
+  --red-tint: #fbefe9;
+  --red-icon: #f6ddd4;
+  --red-border: #efc9bd;
 
-  --amber: #f59e0b;
-  --amber-text: #b45309;
-  --amber-tint: #fffbeb;
-  --amber-icon: #fef3c7;
+  --amber: #d9a21b;
+  --amber-text: #94650a;
+  --amber-tint: #fbf4e1;
+  --amber-icon: #f5e6bd;
 
-  --green: #22c55e;
-  --green-text: #15803d;
-  --green-tint: #f2fdf5;
-  --green-icon: #dcfce7;
+  --green: #2f5d3a;
+  --green-text: #2a5434;
+  --green-tint: #eef2e6;
+  --green-icon: #dbe5d0;
 
-  --gray-bar: #c2c6d1;
+  --gray-bar: #8b8a80;
 
-  --radius-sm: 9px;
-  --radius: 13px;
+  /* The pencil drawings. */
+  --sketch-stroke: #4d6b52;
+  --sketch-fill: #dfe8d5;
+  --sketch-fill-deep: #c9d8bf;
+  --sketch-paper: #fbf9f4;
+
+  --radius-sm: 10px;
+  --radius: 14px;
   --radius-pill: 999px;
-  --sidebar-width: 15rem;
-
-  --red-border: #fecaca;
-  --rail-bg: #ececf3;
   --rail-width: 4.5rem;
 
-  --red-border: #fecaca;
-  --rail-bg: #ececf3;
-  --rail-width: 4.5rem;
-
-  --shadow-soft: 0 1px 2px rgba(16, 16, 24, 0.04);
-  --shadow-card: 0 1px 2px rgba(16, 16, 24, 0.04), 0 8px 24px rgba(16, 16, 24, 0.06);
-  --shadow-card: 0 1px 2px rgba(16, 16, 24, 0.04), 0 8px 24px rgba(16, 16, 24, 0.06);
-  --shadow-pop: 0 1px 3px rgba(16, 16, 24, 0.08);
+  --shadow-soft: 0 1px 2px rgba(60, 50, 30, 0.05);
+  --shadow-card: 0 1px 2px rgba(60, 50, 30, 0.05), 0 10px 28px rgba(60, 50, 30, 0.07);
+  --shadow-pop: 0 1px 3px rgba(60, 50, 30, 0.1);
 
   --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
+  --font-serif: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
 }
 
 *,
@@ -82,6 +84,14 @@ h2,
 h3,
 p {
   margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 button,
@@ -112,7 +122,7 @@ select {
 
 /* ------------------------------------------------------------------ shell -- */
 
-/* The signed-in app: a rail of classes on the left, the page beside it. */
+/* The signed-in app: the nav on the left, the page beside it. */
 .workspace {
   display: flex;
   min-height: 100vh;
@@ -125,6 +135,31 @@ select {
   flex-direction: column;
 }
 
+/* The wordmark, wherever it appears. */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text);
+}
+
+.brand__mark {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.brand__name {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1;
+}
+
+/*
+ * The nav. Narrow by default: a column of icons and initials, labels kept for
+ * screen readers only. At 64rem it widens into a labelled sidebar.
+ */
 .rail {
   position: sticky;
   top: 0;
@@ -135,14 +170,35 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 0;
-  background-color: var(--rail-bg);
+  gap: 0.35rem;
+  padding: 1rem 0 0.9rem;
+  background-color: var(--bg);
   border-right: 1px solid var(--border);
 }
 
+.rail__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.9rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.rail__brand .brand__name,
+.rail__label,
+.rail__heading {
+  /* Hidden visually on the narrow rail, still read out. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .rail__classes {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   width: 100%;
   margin: 0;
@@ -151,7 +207,7 @@ select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
   overflow-y: auto;
   scrollbar-width: none;
 }
@@ -160,89 +216,119 @@ select {
   display: none;
 }
 
-/* A round tile that squares off when hovered or selected. */
+.rail__classes > li {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
 .rail__item {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 3rem;
-  height: 3rem;
-  padding: 0;
-  background-color: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  padding: 0.3rem;
+  background: none;
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius);
   color: var(--text-soft);
-  font-size: 0.95rem;
-  font-weight: 750;
-  letter-spacing: -0.02em;
+  font-size: 0.97rem;
+  text-align: left;
   text-decoration: none;
   cursor: pointer;
   transition:
-    border-radius 160ms ease,
-    background-color 160ms ease,
-    color 160ms ease;
-}
-
-.rail__item::before {
-  content: "";
-  position: absolute;
-  left: calc((var(--rail-width) - 3rem) / -2);
-  width: 4px;
-  height: 0;
-  border-radius: 0 4px 4px 0;
-  background-color: var(--text);
-  transition: height 160ms ease;
+    background-color 140ms ease,
+    color 140ms ease;
 }
 
 .rail__item:hover {
-  border-radius: 32%;
-  background-color: var(--accent);
-  color: #ffffff;
-}
-
-.rail__item:hover::before {
-  height: 1.1rem;
+  background-color: var(--surface-sunk);
+  color: var(--text);
 }
 
 .rail__item.active {
-  border-radius: 32%;
+  background-color: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.rail__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 11px;
+}
+
+/* A class's initials, in a small tile. */
+.rail__icon--initials {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-soft);
+}
+
+.rail__item.active .rail__icon--initials {
   background-color: var(--accent);
+  border-color: var(--accent);
   color: #ffffff;
 }
 
-.rail__item.active::before {
-  height: 2.2rem;
-}
-
 .rail__item--add {
-  color: var(--green-text);
+  color: var(--accent-text);
 }
 
-.rail__item--add:hover {
-  background-color: var(--green);
+.rail__item--add .rail__icon {
+  border: 1px dashed var(--border-strong);
 }
 
 .rail__item--me {
-  background: none;
+  margin-top: auto;
 }
 
-.rail__item--me:hover,
-.rail__item--me.active {
-  background: none;
+.rail__item--me .avatar {
+  width: 2.2rem;
+  height: 2.2rem;
+}
+
+.rail__sublabel {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 400;
 }
 
 .rail__divider {
   width: 2rem;
-  height: 2px;
-  border-radius: 2px;
+  height: 1px;
+  margin: 0.45rem 0;
   background-color: var(--border-strong);
+}
+
+/* The drawing of the campus only appears in the wide sidebar. */
+.rail__art {
+  display: none;
 }
 
 .content {
   width: 100%;
   max-width: 68rem;
   margin: 0 auto;
-  padding: 1.25rem 0.75rem 3rem;
+  padding: 1.25rem 1rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* The class page, which has a side column to fit. */
+.content--wide {
+  max-width: 82rem;
+}
+
+.tab-panel {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -270,9 +356,7 @@ select {
 /* -------------------------------------------------------------- greeting -- */
 
 .greeting__title {
-  font-size: clamp(1.55rem, 5vw, 2.1rem);
-  font-weight: 750;
-  letter-spacing: -0.035em;
+  font-size: clamp(1.7rem, 5vw, 2.3rem);
   line-height: 1.15;
 }
 
@@ -282,91 +366,84 @@ select {
   font-size: 0.95rem;
 }
 
-/* ----------------------------------------------------------------- stats -- */
+/* ------------------------------------------------------------------ hero -- */
 
-.stats {
+.hero {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem 2rem;
+  align-items: start;
+  padding-top: 0.5rem;
 }
 
-.stat {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.6rem 0.45rem;
-  border-radius: var(--radius);
-  border: 1px solid transparent;
-}
-
-.stat--pending {
-  background-color: var(--red-tint);
-  border-color: #fde3e3;
-}
-
-.stat--pending .stat__icon {
-  background-color: var(--red-icon);
-  color: var(--red-text);
-}
-
-.stat--urgent {
-  border-color: #f8c9c9;
-}
-
-.stat--soon {
-  background-color: var(--amber-tint);
-  border-color: #fdeec4;
-}
-
-.stat--soon .stat__icon {
-  background-color: var(--amber-icon);
-  color: var(--amber-text);
-}
-
-.stat--completed {
-  background-color: var(--green-tint);
-  border-color: #d3f5df;
-}
-
-.stat--completed .stat__icon {
-  background-color: var(--green-icon);
-  color: var(--green-text);
-}
-
-.stat__icon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 1.55rem;
-  height: 1.55rem;
-  border-radius: var(--radius-pill);
-}
-
-.stat__text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-}
-
-.stat__value {
-  font-size: 1.15rem;
-  font-weight: 750;
-  letter-spacing: -0.02em;
-}
-
-.stat__label {
-  font-size: 0.68rem;
+.hero__eyebrow {
   color: var(--text-soft);
-  overflow-wrap: anywhere;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
 }
 
-.stat__note {
-  margin-top: 0.1rem;
-  font-size: 0.6rem;
-  font-weight: 650;
-  color: var(--red-text);
+.hero__title {
+  /* inline-block so the drawn underline is only as wide as the words. */
+  display: inline-block;
+  margin-top: 0.55rem;
+  padding-bottom: 0.7rem;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
   overflow-wrap: anywhere;
+  /* A pencil stroke under the title, thicker in the middle, like a highlighter swipe. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 12' preserveAspectRatio='none'%3E%3Cpath d='M2 8c60-5 140-7 296-3' fill='none' stroke='%23b7c9ad' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: 100% 0.6rem;
+}
+
+.hero__subtitle {
+  margin-top: 0.5rem;
+  color: var(--text-soft);
+  font-family: var(--font-serif);
+  font-size: clamp(1.05rem, 2.6vw, 1.3rem);
+}
+
+.hero__subtitle strong {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.hero__overdue {
+  color: var(--red-text);
+  font-weight: 600;
+}
+
+.hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.7rem;
+  margin-top: 0.8rem;
+}
+
+.hero__description {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.hero__art {
+  display: none;
+}
+
+.hero__books {
+  width: 100%;
+  height: auto;
 }
 
 /* --------------------------------------------------------------- toolbar -- */
@@ -380,9 +457,7 @@ select {
 }
 
 .toolbar__title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-size: 1.45rem;
 }
 
 .filters {
@@ -394,33 +469,33 @@ select {
 
 .segmented {
   display: inline-flex;
-  gap: 0.15rem;
-  padding: 0.22rem;
-  background-color: #ecedf1;
-  border-radius: var(--radius-pill);
+  gap: 0.35rem;
 }
 
 .segmented__button {
-  flex: 1;
-  min-height: 2.2rem;
-  padding: 0.25rem 0.85rem;
+  min-height: 2.4rem;
+  padding: 0.3rem 1.1rem;
   background-color: transparent;
-  border: none;
-  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   color: var(--text-soft);
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .segmented__button:hover {
+  background-color: var(--surface-sunk);
   color: var(--text);
 }
 
 .segmented__button[aria-pressed="true"] {
-  background-color: var(--surface);
-  color: var(--text);
+  background-color: var(--accent-soft);
+  border-color: #d2ddc7;
+  color: var(--accent-text);
   font-weight: 600;
-  box-shadow: var(--shadow-pop);
 }
 
 .filters__subject {
@@ -456,9 +531,10 @@ select {
   align-items: center;
   gap: 0.7rem;
   margin-bottom: 0.6rem;
+  font-family: var(--font);
   font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-weight: 600;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -473,26 +549,33 @@ select {
 .group__rows {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 /* ------------------------------------------------------------------ rows -- */
 
+/*
+ * One assignment. Three columns on a phone (date, body, check), four from 40rem
+ * where the file icon fits between the date and the body.
+ */
 .row {
   --row-bar: var(--gray-bar);
   --row-due: var(--text-soft);
+  --row-icon-bg: var(--surface-sunk);
+  --row-icon: var(--text-muted);
 
   /* Anchors the completion wash overlay, and keeps the settle animation's
      transform from being applied to a static-position box. */
   position: relative;
   overflow: hidden;
+  /* Room for a link from the calendar to land without touching the top. */
+  scroll-margin-top: 1.5rem;
 
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  column-gap: 0.85rem;
-  row-gap: 0.55rem;
-  padding: 0.95rem 1.1rem 0.95rem 1.2rem;
+  grid-template-columns: 4.1rem minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.9rem;
+  padding: 1rem 1rem 1rem 0.75rem;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-left: 5px solid var(--row-bar);
@@ -500,122 +583,155 @@ select {
   box-shadow: var(--shadow-soft);
 }
 
+.row:target {
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-soft);
+}
+
 .row--overdue {
   --row-bar: var(--red);
   --row-due: var(--red-text);
+  --row-icon-bg: var(--red-tint);
+  --row-icon: var(--red-text);
 }
 
-.row--today {
-  --row-bar: var(--amber);
-  --row-due: var(--amber-text);
-}
-
+.row--today,
 .row--soon {
   --row-bar: var(--amber);
   --row-due: var(--amber-text);
+  --row-icon-bg: var(--amber-tint);
+  --row-icon: var(--amber-text);
 }
 
 .row--completed {
-  --row-bar: var(--green);
-  --row-due: var(--green-text);
+  --row-bar: var(--accent);
+  --row-due: var(--accent-text);
+  background-color: var(--green-tint);
+  border-color: #dde5d3;
 }
 
-.row__check {
-  grid-column: 1;
-  grid-row: 1;
-  place-self: start;
-  position: relative;
-  display: grid;
+/* The date block: month, day, and how far off it is, over a hairline divider. */
+.row__date {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 0.7rem;
+  border-right: 1px solid var(--border);
+  color: var(--text);
+  text-align: center;
+}
+
+.row__date-parts {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.row__date-month {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.row__date-day {
+  margin: 0.1rem 0 0.2rem;
+  font-family: var(--font-serif);
+  font-size: 1.85rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.row__date-relative {
+  color: var(--row-due);
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.row__date-undated {
+  margin-bottom: 0.25rem;
+  color: var(--text-muted);
+}
+
+.row__date-done {
+  color: var(--accent);
+}
+
+.row__icon {
+  display: none;
   place-items: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  margin-top: 0.2rem;
-  padding: 0;
-  background-color: transparent;
-  border: 2px solid #d5d8e0;
-  border-radius: var(--radius-pill);
-  color: transparent;
-  cursor: pointer;
+  width: 2.6rem;
+  height: 2.6rem;
+  background-color: var(--row-icon-bg);
+  border-radius: 11px;
+  color: var(--row-icon);
 }
 
-/* Invisible, larger tap area without changing the circle's size. */
-.row__check::after {
-  content: "";
-  position: absolute;
-  inset: -9px;
-}
-
-.row__check:hover {
-  border-color: #b3b8c4;
-  background-color: #f5f6f9;
-}
-
-.row--completed .row__check {
-  background-color: var(--green-text);
-  border-color: var(--green-text);
-  color: #ffffff;
+.row--completed .row__icon {
+  visibility: hidden;
 }
 
 .row__body {
-  grid-column: 2;
-  grid-row: 1;
   min-width: 0;
-}
-
-.row__title {
-  font-size: 1rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-}
-
-.row--completed .row__title {
-  color: var(--text-muted);
-  text-decoration: line-through;
-  text-decoration-color: #c9ccd4;
 }
 
 .row__meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.45rem;
-  margin-top: 0.1rem;
-  font-size: 0.82rem;
+  gap: 0.5rem;
   color: var(--text-soft);
-}
-
-.row__priority {
-  padding: 0.05rem 0.4rem;
-  border-radius: 6px;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
+.row__title {
+  margin-top: 0.15rem;
+  font-size: 1.2rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.row--completed .row__title {
+  color: var(--text-soft);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-muted);
+  text-decoration-thickness: 1px;
+}
+
+.row__priority {
+  padding: 0.05rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
 .row__priority--high {
-  background-color: var(--red-tint);
+  background-color: var(--red-icon);
   color: var(--red-text);
 }
 
 .row__priority--normal {
-  background-color: #f1f2f6;
+  background-color: var(--surface-sunk);
   color: var(--text-soft);
 }
 
 .row__priority--low {
-  background-color: #f6f7f9;
+  background-color: var(--surface-sunk);
   color: var(--text-muted);
 }
 
 .row__description {
-  margin-top: 0.3rem;
-  font-size: 0.89rem;
+  margin-top: 0.25rem;
+  font-size: 0.92rem;
   color: var(--text-soft);
-}
-
-.row--completed .row__description {
-  color: var(--text-muted);
 }
 
 .row__description--clamped {
@@ -643,55 +759,102 @@ select {
   color: var(--text);
 }
 
+.row__note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  padding: 0.15rem 0.55rem;
+  background-color: var(--surface-sunk);
+  border-radius: var(--radius-pill);
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.row__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 1rem;
+  margin-top: 0.45rem;
+}
+
 .row__attachment {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  margin-top: 0.4rem;
-  color: var(--text-soft);
+  color: var(--accent-text);
   font-size: 0.82rem;
   font-weight: 600;
   text-decoration: none;
 }
 
 .row__attachment:hover {
-  color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
 .row__posted-by {
-  margin-top: 0.35rem;
   color: var(--text-muted);
   font-size: 0.78rem;
 }
 
-.row__due {
-  grid-column: 2;
-  grid-row: 2;
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  white-space: nowrap;
-  font-size: 0.85rem;
-}
-
-.row__due-relative {
+/* The tick: a soft green square while pending, a "Completed" pill once done. */
+.row__check {
+  position: relative;
+  align-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-weight: 650;
-  color: var(--row-due);
+  justify-content: center;
+  gap: 0.4rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  padding: 0 0.55rem;
+  background-color: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--accent-text);
+  font-family: var(--font-serif);
+  font-size: 0.98rem;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 120ms ease;
 }
 
-.row__due-date {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+.row__check:hover {
+  background-color: var(--accent);
+  color: #ffffff;
 }
 
-.row__due-date::before {
-  content: "\00b7";
-  margin: 0 0.3rem;
+.row__check:active {
+  transform: scale(0.96);
+}
+
+.row__check:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+.row--completed .row__check {
+  align-self: center;
+  padding: 0 0.9rem;
+  background-color: var(--green-icon);
+  border-radius: var(--radius-pill);
+}
+
+.row--completed .row__check:hover {
+  background-color: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text-soft);
+}
+
+/* On a phone the "Completed" word hides; the tick alone carries it. */
+.row__check-text {
+  display: none;
 }
 
 /* -------------------------------------------------------------- listbox -- */
@@ -731,7 +894,7 @@ select {
 }
 
 .listbox__trigger:hover:not(:disabled) {
-  border-color: #c2c2cd;
+  border-color: var(--text-muted);
 }
 
 .listbox__trigger:disabled {
@@ -742,7 +905,7 @@ select {
 /* The open state is the only one with a visible ring, so "the menu is showing" is
    legible from the control alone. */
 .listbox--open .listbox__trigger {
-  background-color: #fbfbff;
+  background-color: var(--surface);
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
@@ -820,7 +983,7 @@ select {
 }
 
 .listbox__option--active {
-  background-color: #f2f2f6;
+  background-color: var(--surface-sunk);
 }
 
 .listbox__option--selected {
@@ -882,18 +1045,23 @@ select {
   display: grid;
   place-items: center;
   line-height: 0;
-  transform: scale(0.4);
-  opacity: 0;
-  transition:
-    transform 220ms cubic-bezier(0.2, 1.4, 0.4, 1),
-    opacity 140ms ease;
 }
 
-/* The tick appears only when the control is pressed in, so un-ticking retracts it
-   rather than leaving a tick behind. */
-.row__check[aria-pressed="true"] .row__check-mark {
-  transform: scale(1);
-  opacity: 1;
+/* The tick pops once as the card lands in Completed. */
+.row[data-just-completed="true"] .row__check-mark {
+  animation: tick-pop 320ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+@keyframes tick-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .row[data-just-completed="true"] {
@@ -928,7 +1096,7 @@ select {
   background-image: linear-gradient(
     100deg,
     transparent 20%,
-    rgba(34, 197, 94, 0.16) 50%,
+    rgba(47, 93, 58, 0.14) 50%,
     transparent 80%
   );
   pointer-events: none;
@@ -958,8 +1126,9 @@ select {
 }
 
 .empty-state__title {
-  font-size: 1rem;
-  font-weight: 650;
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 600;
 }
 
 .empty-state__message {
@@ -1009,9 +1178,9 @@ select {
 
 .record__title {
   margin-top: 0.1rem;
-  font-size: 1rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .record__description {
@@ -1037,7 +1206,7 @@ select {
 .record__date code,
 .record__meta code {
   padding: 0.05rem 0.3rem;
-  background-color: #f2f3f7;
+  background-color: var(--surface-sunk);
   border-radius: 5px;
   font-size: 0.78rem;
 }
@@ -1113,17 +1282,10 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  color: var(--accent-text);
-  font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
 }
 
 .auth-card__title {
-  font-size: 1.2rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 1.5rem;
 }
 
 .auth-card__hint {
@@ -1196,7 +1358,7 @@ select {
 }
 
 .button--google:hover {
-  background-color: #f6f6f9;
+  background-color: var(--surface-sunk);
 }
 
 .button--block {
@@ -1267,9 +1429,7 @@ select {
 
 .panel__title {
   margin-bottom: 0.9rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 1.25rem;
 }
 
 .form__grid {
@@ -1300,7 +1460,7 @@ select {
 }
 
 .input:hover {
-  border-color: #c2c2cd;
+  border-color: var(--text-muted);
 }
 
 .input:focus-visible {
@@ -1390,8 +1550,8 @@ select {
 }
 
 .button--primary:hover:not(:disabled) {
-  background-color: var(--accent-text);
-  border-color: var(--accent-text);
+  background-color: var(--accent-strong);
+  border-color: var(--accent-strong);
   box-shadow: var(--shadow-pop);
 }
 
@@ -1426,7 +1586,7 @@ select {
 }
 
 .badge--archived {
-  background-color: #ecedf1;
+  background-color: var(--surface-sunk);
   color: var(--text-muted);
 }
 
@@ -1450,7 +1610,7 @@ select {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--surface);
+  background-color: var(--bg);
 }
 
 .landing__nav {
@@ -1462,15 +1622,13 @@ select {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background-color: rgba(255, 255, 255, 0.86);
+  background-color: rgba(246, 242, 234, 0.88);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
 
 .landing__brand {
-  font-size: 1.25rem;
-  font-weight: 800;
-  letter-spacing: -0.035em;
+  display: inline-flex;
 }
 
 .landing__nav-actions {
@@ -1493,8 +1651,8 @@ select {
   z-index: 0;
   height: 32rem;
   background:
-    radial-gradient(closest-side, rgba(79, 70, 229, 0.16), transparent),
-    radial-gradient(closest-side at 70% 40%, rgba(34, 197, 94, 0.1), transparent);
+    radial-gradient(closest-side, rgba(47, 93, 58, 0.12), transparent),
+    radial-gradient(closest-side at 70% 40%, rgba(217, 162, 27, 0.08), transparent);
   pointer-events: none;
 }
 
@@ -1514,9 +1672,8 @@ select {
 }
 
 .landing__title {
-  font-size: clamp(2.1rem, 7vw, 3.6rem);
-  font-weight: 800;
-  letter-spacing: -0.045em;
+  font-size: clamp(2.3rem, 7vw, 3.9rem);
+  letter-spacing: -0.02em;
   line-height: 1.05;
 }
 
@@ -1544,9 +1701,7 @@ select {
 
 .landing__section-title {
   margin-bottom: 1.75rem;
-  font-size: clamp(1.4rem, 4vw, 1.9rem);
-  font-weight: 750;
-  letter-spacing: -0.035em;
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
   text-align: center;
 }
 
@@ -1561,7 +1716,7 @@ select {
 
 .feature {
   padding: 1.25rem;
-  background-color: var(--bg);
+  background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
@@ -1578,8 +1733,7 @@ select {
 }
 
 .feature__title {
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 1.15rem;
 }
 
 .feature__text {
@@ -1615,8 +1769,7 @@ select {
 }
 
 .step__title {
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1.2rem;
 }
 
 .step__text {
@@ -1651,63 +1804,12 @@ select {
   text-align: center;
 }
 
-/* ----------------------------------------------------------- class header -- */
-
-.class-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background-color: var(--surface);
-  border-bottom: 1px solid var(--border);
-}
-
-.class-header__inner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  max-width: 68rem;
-  margin: 0 auto;
-  padding: 0.9rem 0.75rem 0.4rem;
-}
-
-.class-header__text {
-  min-width: 0;
-}
-
-.class-header__name {
-  font-size: 1.3rem;
-  font-weight: 750;
-  letter-spacing: -0.03em;
-  overflow-wrap: anywhere;
-}
-
-.class-header__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.2rem;
-}
-
-.class-header__description {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-.class-header__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
+/* ------------------------------------------------------------------ tabs -- */
 
 .tabs {
   display: flex;
-  gap: 0.25rem;
-  max-width: 68rem;
-  margin: 0 auto;
-  padding: 0 0.5rem;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1718,13 +1820,14 @@ select {
 
 .tabs__tab {
   flex: 0 0 auto;
-  padding: 0.65rem 0.75rem;
+  margin-bottom: -1px;
+  padding: 0.6rem 0.4rem;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--text-muted);
-  font-size: 0.9rem;
-  font-weight: 650;
+  font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -1735,6 +1838,7 @@ select {
 .tabs__tab--active {
   border-bottom-color: var(--accent);
   color: var(--accent-text);
+  font-weight: 600;
 }
 
 /* ------------------------------------------------------ app home & lists -- */
@@ -1757,9 +1861,9 @@ select {
 .class-card {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.95rem;
   height: 100%;
-  padding: 1rem;
+  padding: 1.1rem 1.15rem;
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -1778,12 +1882,13 @@ select {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 3rem;
+  height: 3rem;
   background-color: var(--accent-soft);
-  border-radius: 32%;
+  border-radius: 12px;
   color: var(--accent-text);
-  font-weight: 750;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .class-card__body {
@@ -1794,7 +1899,9 @@ select {
 }
 
 .class-card__name {
-  font-weight: 700;
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -1870,7 +1977,7 @@ select {
   display: inline-flex;
   align-items: center;
   padding: 0.12rem 0.55rem;
-  background-color: #ecedf1;
+  background-color: var(--surface-sunk);
   border-radius: var(--radius-pill);
   color: var(--text-soft);
   font-size: 0.72rem;
@@ -1929,12 +2036,12 @@ select {
   font-size: 0.85rem;
 }
 
-.avatar--tone-0 { background-color: #4f46e5; }
-.avatar--tone-1 { background-color: #0e9f6e; }
-.avatar--tone-2 { background-color: #d97706; }
-.avatar--tone-3 { background-color: #db2777; }
-.avatar--tone-4 { background-color: #0891b2; }
-.avatar--tone-5 { background-color: #7c3aed; }
+.avatar--tone-0 { background-color: #2f5d3a; }
+.avatar--tone-1 { background-color: #a8741a; }
+.avatar--tone-2 { background-color: #b0523c; }
+.avatar--tone-3 { background-color: #3d6b73; }
+.avatar--tone-4 { background-color: #74506a; }
+.avatar--tone-5 { background-color: #5f6e34; }
 
 /* ---------------------------------------------------------------- members -- */
 
@@ -2061,11 +2168,11 @@ select {
   border: none;
   border-radius: calc(var(--radius) * 1.25);
   color: var(--text);
-  box-shadow: 0 24px 64px rgba(16, 16, 24, 0.24);
+  box-shadow: 0 24px 64px rgba(40, 32, 16, 0.22);
 }
 
 .dialog::backdrop {
-  background-color: rgba(16, 16, 24, 0.45);
+  background-color: rgba(31, 42, 34, 0.42);
 }
 
 .dialog__body {
@@ -2096,9 +2203,7 @@ select {
 
 .dialog__title {
   padding-right: 2rem;
-  font-size: 1.25rem;
-  font-weight: 750;
-  letter-spacing: -0.025em;
+  font-size: 1.5rem;
 }
 
 .dialog__hint {
@@ -2190,6 +2295,264 @@ a.auth-card__brand {
   font-size: 0.82rem;
 }
 
+/* ------------------------------------------------- board, calendar, upcoming -- */
+
+/* The assignments tab: the list, and the agenda beside it once there is room. */
+.board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.75rem;
+  align-items: start;
+}
+
+.board__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.agenda {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.side-card {
+  padding: 1.25rem 1.25rem 1.1rem;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow: var(--shadow-soft);
+}
+
+.side-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.side-card__title {
+  font-size: 1.4rem;
+}
+
+.calendar__today {
+  margin-top: 0;
+}
+
+.calendar__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0.8rem 0 0.6rem;
+}
+
+.calendar__month {
+  font-family: var(--font-serif);
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.calendar__step {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.calendar__step:hover {
+  background-color: var(--surface-sunk);
+  color: var(--text);
+}
+
+.calendar__grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
+}
+
+.calendar__grid th {
+  padding-bottom: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.calendar__grid td {
+  padding: 0.12rem 0;
+}
+
+.calendar__day {
+  display: inline-grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+a.calendar__day {
+  font-weight: 600;
+}
+
+a.calendar__day:hover {
+  box-shadow: inset 0 0 0 1.5px var(--text-muted);
+}
+
+.calendar__day--overdue {
+  background-color: var(--red-icon);
+  color: var(--red-text);
+}
+
+.calendar__day--soon {
+  background-color: var(--amber-icon);
+  color: var(--amber-text);
+}
+
+.calendar__day--upcoming {
+  background-color: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Only finished work that day: a small mark, not a fill. */
+.calendar__day--done {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 4px;
+}
+
+.calendar__day--today {
+  background-color: var(--accent);
+  border-radius: 9px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.calendar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0.8rem 0 0;
+  padding: 0.75rem 0 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.calendar__key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.calendar__key::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+
+.calendar__key--overdue::before {
+  background-color: var(--red-icon);
+  box-shadow: inset 0 0 0 1px var(--red-border);
+}
+
+.calendar__key--soon::before {
+  background-color: var(--amber-icon);
+  box-shadow: inset 0 0 0 1px #ead39a;
+}
+
+.calendar__key--upcoming::before {
+  background-color: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px #cbd8bf;
+}
+
+.upcoming {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upcoming__item {
+  --tone-bg: var(--surface-sunk);
+  --tone: var(--text-muted);
+
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding: 0.55rem 0.5rem;
+  margin: 0 -0.5rem;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  text-decoration: none;
+}
+
+.upcoming__item:hover {
+  background-color: var(--surface-sunk);
+}
+
+.upcoming__item--overdue {
+  --tone-bg: var(--red-tint);
+  --tone: var(--red-text);
+}
+
+.upcoming__item--soon {
+  --tone-bg: var(--amber-tint);
+  --tone: var(--amber-text);
+}
+
+.upcoming__icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  background-color: var(--tone-bg);
+  border-radius: 10px;
+  color: var(--tone);
+}
+
+.upcoming__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.upcoming__title {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.upcoming__meta {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.upcoming__empty {
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
 /* ----------------------------------------------------------- breakpoints -- */
 
 @media (min-width: 30rem) {
@@ -2202,39 +2565,8 @@ a.auth-card__brand {
     min-width: 11rem;
   }
 
-  .stat {
-    padding: 1rem 1.1rem;
-    gap: 0.8rem;
-  }
-
-  .stat__icon {
-    width: 2.4rem;
-    height: 2.4rem;
-  }
-
-  .stat__value {
-    font-size: 1.45rem;
-  }
-
-  .stat__label {
-    font-size: 0.8rem;
-  }
-
-  .stat__note {
-    margin-top: 0.15rem;
-    font-size: 0.72rem;
-  }
-
   .content {
-    padding: 1.75rem 1.5rem 4rem;
-  }
-
-  .class-header__inner {
-    padding: 1rem 1.5rem 0.4rem;
-  }
-
-  .tabs {
-    padding: 0 1.25rem;
+    padding: 1.75rem 1.75rem 4rem;
   }
 
   .landing__nav {
@@ -2245,22 +2577,40 @@ a.auth-card__brand {
 /* Phones: a slimmer rail so the page keeps its width. */
 @media (max-width: 29.99rem) {
   :root {
-    --rail-width: 3.75rem;
+    --rail-width: 3.6rem;
+  }
+
+  .rail__icon {
+    width: 2.25rem;
+    height: 2.25rem;
   }
 
   .rail__item {
-    width: 2.6rem;
-    height: 2.6rem;
-    font-size: 0.85rem;
+    padding: 0.2rem;
   }
 
-  .rail__item::before {
-    left: calc((var(--rail-width) - 2.6rem) / -2);
+  .row {
+    grid-template-columns: 3.4rem minmax(0, 1fr) auto;
+    column-gap: 0.7rem;
+    padding: 0.85rem 0.75rem 0.85rem 0.5rem;
   }
 
-  .rail__item--me .avatar {
-    width: 2.2rem;
-    height: 2.2rem;
+  .row__date {
+    padding-right: 0.5rem;
+  }
+
+  .row__date-day {
+    font-size: 1.5rem;
+  }
+
+  .row__date-relative {
+    font-size: 0.58rem;
+    letter-spacing: 0.04em;
+    white-space: normal;
+  }
+
+  .row__title {
+    font-size: 1.08rem;
   }
 
   .invite-box {
@@ -2272,27 +2622,164 @@ a.auth-card__brand {
   }
 }
 
-@media (min-width: 48rem) {
-  .stats {
-    gap: 0.75rem;
-  }
-
+@media (min-width: 40rem) {
   .row {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    padding: 1.05rem 1.25rem;
+    grid-template-columns: 5rem auto minmax(0, 1fr) auto;
+    column-gap: 1.1rem;
+    padding: 1.1rem 1.25rem 1.1rem 0.9rem;
   }
 
-  /* The due block moves to the right-hand column on wider screens. */
-  .row__due {
-    grid-column: 3;
+  .row__date {
+    padding-right: 1rem;
+  }
+
+  .row__icon {
+    display: grid;
+    align-self: start;
+    margin-top: 0.2rem;
+  }
+
+  .row__check {
+    align-self: center;
+  }
+
+  .row__check-text {
+    display: inline;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .hero__actions {
+    grid-column: 2;
     grid-row: 1;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.05rem;
+    padding-top: 0.25rem;
+  }
+}
+
+@media (min-width: 52rem) {
+  /* The drawing sits beside the title when no buttons need the space. */
+  .hero__art {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    width: clamp(12rem, 22vw, 17rem);
+    margin-top: 1rem;
+  }
+}
+
+/* The wide sidebar: labels, a heading over the classes, and the campus drawing. */
+@media (min-width: 64rem) {
+  :root {
+    --rail-width: 15.5rem;
   }
 
-  .row__due-date::before {
-    content: none;
+  .rail {
+    align-items: stretch;
+    padding: 1.6rem 1rem 1.1rem;
+    gap: 0.2rem;
+  }
+
+  .rail__brand {
+    justify-content: flex-start;
+    padding: 0 0.6rem;
+    margin-bottom: 1.6rem;
+  }
+
+  .rail__brand .brand__name,
+  .rail__label,
+  .rail__heading {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: hidden;
+    clip-path: none;
+    white-space: nowrap;
+  }
+
+  .rail__label {
+    min-width: 0;
+    text-overflow: ellipsis;
+  }
+
+  .rail__heading {
+    padding: 0 0.75rem 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .rail__item {
+    justify-content: flex-start;
+    width: 100%;
+    padding: 0.35rem 0.6rem 0.35rem 0.35rem;
+  }
+
+  .rail__icon {
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+
+  .rail__classes {
+    align-items: stretch;
+    gap: 0.15rem;
+  }
+
+  .rail__classes > li {
+    display: block;
+  }
+
+  .rail__divider {
+    width: auto;
+    margin: 0.9rem 0.6rem;
+  }
+
+  .rail__art {
+    display: block;
+    width: calc(100% + 2rem);
+    height: auto;
+    margin: auto -1rem 0.25rem;
+    opacity: 0.85;
+  }
+
+  .rail__item--me {
+    margin-top: 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  /* The art pushes the account down; without it, the account does. */
+  .rail__item--me:first-child,
+  .rail__art + .rail__item--me {
+    margin-top: 0;
+  }
+}
+
+/* A short window: drop the drawing before it squeezes the class list. */
+@media (min-width: 64rem) and (max-height: 46rem) {
+  .rail__art {
+    display: none;
+  }
+
+  .rail__item--me {
+    margin-top: auto;
+  }
+}
+
+/* Room for the agenda beside the list. */
+@media (min-width: 80rem) {
+  .board {
+    grid-template-columns: minmax(0, 1fr) 19.5rem;
+  }
+
+  .agenda {
+    position: sticky;
+    top: 1.5rem;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

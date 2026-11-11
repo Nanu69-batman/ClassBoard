@@ -83,6 +83,36 @@ export function formatDueDate(dueDate: string): string {
   });
 }
 
+/**
+ * The parts of the date block on a card: `{ month: "Sep", day: "28" }`.
+ * The month carries a short year when the date falls in another year.
+ * Null for an undated or malformed due date.
+ */
+export function getDueDateParts(dueDate: string): { month: string; day: string } | null {
+  const date = parseISODate(dueDate);
+  if (!date) return null;
+
+  let month = date.toLocaleDateString(undefined, { month: "short" });
+  if (date.getFullYear() !== new Date().getFullYear()) {
+    month += ` ’${String(date.getFullYear()).slice(-2)}`;
+  }
+  return { month, day: String(date.getDate()).padStart(2, "0") };
+}
+
+/**
+ * Two or three words for under the date: `Today`, `Tomorrow`, `5 days`, `2 days late`.
+ * Short enough for a narrow column; the full wording is in `getRelativeDueText`.
+ */
+export function getShortDueText(dueDate: string): string {
+  const days = getDaysUntilDue(dueDate);
+  if (days === null) return "";
+  if (days < -1) return `${Math.abs(days)} days late`;
+  if (days === -1) return "1 day late";
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return `${days} days`;
+}
+
 /** Default wording when a CR posts work with no deadline and no note of their own. */
 export const NO_DEADLINE = "No deadline";
 

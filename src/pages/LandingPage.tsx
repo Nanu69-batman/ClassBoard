@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { Brand } from "../components/Brand";
 import { CheckSquareIcon, ClockIcon, DocumentIcon, PaperclipIcon, PlusIcon, UsersIcon } from "../components/icons";
 
 const FEATURES = [
@@ -46,7 +47,9 @@ export function LandingPage() {
   return (
     <div className="landing">
       <header className="landing__nav">
-        <span className="landing__brand">classboard</span>
+        <span className="landing__brand">
+          <Brand size={24} />
+        </span>
         <nav className="landing__nav-actions" aria-label="Account">
           <Link className="button button--ghost" to="/login">
             Log in
